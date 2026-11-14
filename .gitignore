@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+*.py[cod]
+data/*.sqlite3
+validation-output/
+results/
+ci.sqlite3
+ci-results/

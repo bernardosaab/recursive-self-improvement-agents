@@ -327,6 +327,11 @@ class HarnessProposal(BaseModel):
             raise ValueError("duplicate edit operations")
         return self
 
+    @classmethod
+    def parse(cls, data: dict[str, Any]) -> HarnessProposal:
+        """Validate untrusted, JSON-shaped input (strings for enums, no coercion)."""
+        return cls.model_validate_json(json.dumps(data))
+
     def signature(self) -> str:
         """Order-independent identity of the edit, used by proposer memory."""
         dumped = sorted(json.dumps(op.model_dump(mode="json"), sort_keys=True) for op in self.ops)
@@ -412,6 +417,11 @@ def harness_diff(before: HarnessConfig, after: HarnessConfig) -> dict[str, Any]:
         if left.get(key) != right.get(key):
             diff[key] = {"before": left.get(key), "after": right.get(key)}
     return diff
+
+
+def parse_op(data: dict[str, Any]) -> Any:
+    """Validate one untrusted edit operation given as JSON-shaped data."""
+    return EDIT_OP_ADAPTER.validate_json(json.dumps(data))
 
 
 def harness_schema_for_prompt() -> dict[str, Any]:

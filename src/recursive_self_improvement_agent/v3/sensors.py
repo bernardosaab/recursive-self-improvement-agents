@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from .harness import Family, FailAction, HarnessConfig, Hazard, SensorKind
+from .harness import FailAction, Family, HarnessConfig, Hazard, SensorKind
 from .tasks import WRITE_TOOL, AgentTask, Record, authoritative, field_value
 
 INSTRUCTION_PATTERN = re.compile(
@@ -34,7 +34,11 @@ def detect_hazards(task: AgentTask, raw: list[Record], context: list[Record]) ->
         found.add(Hazard.LATE_RECORD)
     if any(INSTRUCTION_PATTERN.search(r.note) for r in raw):
         found.add(Hazard.INJECTION)
-    current = [r for r in authoritative(raw, task.claim.entity, task.as_of) if field_value(r, task.claim.field) is not None]
+    current = [
+        r
+        for r in authoritative(raw, task.claim.entity, task.as_of)
+        if field_value(r, task.claim.field) is not None
+    ]
     if len({field_value(r, task.claim.field) for r in current}) > 1:
         found.add(Hazard.CONFLICT)
     if len(context) > LONG_CONTEXT_RECORDS:
@@ -59,7 +63,9 @@ def parse_answer(text: str) -> tuple[dict[str, Any] | None, str | None]:
     if not isinstance(refs, list) or not all(isinstance(r, str) for r in refs):
         return None, "references must be a list of strings"
     if not isinstance(actions, list) or not all(
-        isinstance(a, dict) and isinstance(a.get("tool"), str) and isinstance(a.get("arguments", {}), dict)
+        isinstance(a, dict)
+        and isinstance(a.get("tool"), str)
+        and isinstance(a.get("arguments", {}), dict)
         for a in actions
     ):
         return None, "actions must be a list of {tool, arguments}"
@@ -114,7 +120,11 @@ def run_sensors(
         asserts and any(field_value(r, task.claim.field) is None for r in cited),
         "cited record does not state the claimed field",
     )
-    current = [r for r in authoritative(raw, task.claim.entity, task.as_of) if field_value(r, task.claim.field) is not None]
+    current = [
+        r
+        for r in authoritative(raw, task.claim.entity, task.as_of)
+        if field_value(r, task.claim.field) is not None
+    ]
     check(
         SensorKind.CONFLICT_REQUIRES_ABSTAIN,
         asserts and len({field_value(r, task.claim.field) for r in current}) > 1,

@@ -22,6 +22,7 @@ dev = ["httpx>=0.27,<1", "pytest>=8,<9", "ruff>=0.6,<1"]
 
 [project.scripts]
 rasis = "recursive_self_improvement_agent.cli:main"
+rasis-v3 = "recursive_self_improvement_agent.v3.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

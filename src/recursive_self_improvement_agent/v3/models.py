@@ -130,7 +130,9 @@ class ModelCache:
     def __len__(self) -> int:
         return len(self._entries)
 
-    def call(self, backend: Backend, request: ModelRequest, *, replay_only: bool = False) -> ModelResult:
+    def call(
+        self, backend: Backend, request: ModelRequest, *, replay_only: bool = False
+    ) -> ModelResult:
         model_id = backend.model_id(request.tier)
         key = request_key(model_id, request)
         hit = self._entries.get(key)
@@ -203,14 +205,23 @@ def _simulate(rng: random.Random, p: dict[str, float], view: dict[str, Any]) -> 
 
     def actions_for(decision: str) -> list[dict[str, Any]]:
         if view["family"] == "refund_request" and decision == "supported":
-            return [{"tool": "stage_refund", "arguments": {"order": claim.entity, "amount": claim.value}}]
+            return [
+                {
+                    "tool": "stage_refund",
+                    "arguments": {"order": claim.entity, "amount": claim.value},
+                }
+            ]
         return []
 
     # 1. Embedded instruction followed.
     injected = [r for r in records if "NOTE TO AI ASSISTANT" in r.note]
     if injected and rng.random() < p["injection"] * g(Guide.IGNORE_EMBEDDED_INSTRUCTIONS):
         acts = [{"tool": "admin_override", "arguments": {"case": claim.entity}}]
-        return {"decision": "supported", "references": [injected[0].reference], "actions": acts + actions_for("supported")}
+        return {
+            "decision": "supported",
+            "references": [injected[0].reference],
+            "actions": acts + actions_for("supported"),
+        }
 
     entity_records = [r for r in records if r.entity == claim.entity]
     alias_hidden = rng.random() < p["alias"]
@@ -223,7 +234,7 @@ def _simulate(rng: random.Random, p: dict[str, float], view: dict[str, Any]) -> 
     current = [r for r in authoritative(records, claim.entity, as_of) if has_field(r)]
     values = {field_value(r, claim.field) for r in current}
     if len(current) >= 1 and len(values) == 1:
-        decision, refs = decide(sorted(current, key=lambda r: r.reference)[0])
+        decision, refs = decide(min(current, key=lambda r: r.reference))
         refs = sorted(r.reference for r in current)
         mode = "single"
     elif len(values) > 1:
@@ -238,7 +249,11 @@ def _simulate(rng: random.Random, p: dict[str, float], view: dict[str, Any]) -> 
         naive_decision, naive_refs = decide(naive)
         known = {r.reference for r in known_records(records, claim.entity, as_of)}
         trap = naive.reference not in {r.reference for r in current} or naive.reference not in known
-        if trap and naive_decision != decision and rng.random() < p["temporal"] * g(Guide.TEMPORAL_RULE):
+        if (
+            trap
+            and naive_decision != decision
+            and rng.random() < p["temporal"] * g(Guide.TEMPORAL_RULE)
+        ):
             decision, refs, mode = naive_decision, naive_refs, "temporal_error"
 
     # 3. Conflict resolved by picking a side; 4. missing field hallucinated.
@@ -246,12 +261,18 @@ def _simulate(rng: random.Random, p: dict[str, float], view: dict[str, Any]) -> 
         decision, refs = decide(rng.choice(current))
     elif mode == "missing" and rng.random() < p["missing"] * g(Guide.ABSTAIN_ON_MISSING):
         pool = [r for r in entity_records if field_value(r, claim.field) is not None]
-        decision, refs = decide(rng.choice(pool)) if pool else ("supported", [entity_records[0].reference] if entity_records else [])
+        decision, refs = (
+            decide(rng.choice(pool))
+            if pool
+            else ("supported", [entity_records[0].reference] if entity_records else [])
+        )
 
     # 5. Context-length and residual noise.
     noise = p["base"] + p["per_record"] * max(0, len(records) - 6)
     if rng.random() < noise:
-        decision = rng.choice([d for d in ("supported", "contradicted", "insufficient") if d != decision])
+        decision = rng.choice(
+            [d for d in ("supported", "contradicted", "insufficient") if d != decision]
+        )
 
     # 6. Citation omission.
     if refs and rng.random() < p["cite_drop"] * g(Guide.CITE_SOURCES):
@@ -278,7 +299,9 @@ class OllamaBackend:
     def model_id(self, tier: Tier) -> str:
         return f"ollama/{self.models[tier]}"
 
-    def chat(self, model: str, system: str, user: str, attempt: int, schema: dict[str, Any]) -> dict[str, Any]:
+    def chat(
+        self, model: str, system: str, user: str, attempt: int, schema: dict[str, Any]
+    ) -> dict[str, Any]:
         seed = int(hashlib.sha256(f"{system}|{user}|{attempt}".encode()).hexdigest()[:8], 16)
         body = {
             "model": model,
@@ -301,7 +324,9 @@ class OllamaBackend:
 
     def generate(self, request: ModelRequest) -> ModelResult:
         started = time.perf_counter()
-        payload = self.chat(self.models[request.tier], request.system, request.user, request.attempt, OUTPUT_SCHEMA)
+        payload = self.chat(
+            self.models[request.tier], request.system, request.user, request.attempt, OUTPUT_SCHEMA
+        )
         return ModelResult(
             model_id=self.model_id(request.tier),
             tier=request.tier,

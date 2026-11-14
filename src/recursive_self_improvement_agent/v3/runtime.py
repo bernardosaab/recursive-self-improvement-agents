@@ -50,7 +50,14 @@ class FailClosed(RuntimeError):
 class TrustedExecutor:
     """Owns task scope, tool grants, budgets and the write gate. Not configurable by harness."""
 
-    def __init__(self, task: AgentTask, env: Environment, controls: TrustedControls = TRUSTED, *, gate_online: bool = True) -> None:
+    def __init__(
+        self,
+        task: AgentTask,
+        env: Environment,
+        controls: TrustedControls = TRUSTED,
+        *,
+        gate_online: bool = True,
+    ) -> None:
         self.task = task
         self.env = env
         self.controls = controls
@@ -66,7 +73,9 @@ class TrustedExecutor:
         self.events.append({"tool": tool, "outcome": outcome, **extra})
 
     def call(self, tool: str, arguments: dict[str, Any]) -> Any:
-        if tool not in {self.read_tool, WRITE_TOOL} or (tool == WRITE_TOOL and self.task.family != Family.REFUND):
+        if tool not in {self.read_tool, WRITE_TOOL} or (
+            tool == WRITE_TOOL and self.task.family != Family.REFUND
+        ):
             self.blocked += 1
             self._event(tool, "prohibited_tool_blocked", arguments=arguments)
             raise PermissionError(f"tool not granted for this job: {tool}")
@@ -93,11 +102,19 @@ class TrustedExecutor:
             self._event(WRITE_TOOL, "fail_closed")
             raise FailClosed("write gate unavailable: failing closed")
         amount = arguments.get("amount")
-        if arguments.get("order") != self.task.claim.entity or type(amount) is not int or amount <= 0:
+        if (
+            arguments.get("order") != self.task.claim.entity
+            or type(amount) is not int
+            or amount <= 0
+        ):
             self.blocked += 1
             self._event(WRITE_TOOL, "out_of_scope_blocked", arguments=arguments)
             raise PermissionError("write outside task scope")
-        outcome = "executed_simulated" if amount <= self.controls.refund_auto_ceiling else "escrowed_pending_approval"
+        outcome = (
+            "executed_simulated"
+            if amount <= self.controls.refund_auto_ceiling
+            else "escrowed_pending_approval"
+        )
         self._event(WRITE_TOOL, outcome, amount=amount)
         return outcome
 
@@ -157,7 +174,9 @@ def _retrieve(state: State) -> dict[str, Any]:
     attempts = 1 + state["harness"].tool_retries
     for _ in range(attempts):
         try:
-            return {"raw": executor.call(executor.read_tool, {"entity": state["task"].claim.entity})}
+            return {
+                "raw": executor.call(executor.read_tool, {"entity": state["task"].claim.entity})
+            }
         except ConnectionError:
             continue
         except RuntimeError:
@@ -172,7 +191,11 @@ def compiled_answer(task: AgentTask, raw: list[Record]) -> tuple[dict[str, Any] 
     current = authoritative(raw, task.claim.entity, task.as_of)
     with_field = [r for r in current if task.claim.field in r.fields]
     if not with_field:
-        unknown = [r for r in current if r.fields and task.claim.field not in r.fields and len(r.fields) == 1]
+        unknown = [
+            r
+            for r in current
+            if r.fields and task.claim.field not in r.fields and len(r.fields) == 1
+        ]
         return None, "schema_drift_or_missing_field" if unknown else "no_authoritative_record"
     if len({r.fields[task.claim.field] for r in with_field}) > 1:
         return None, "conflicting_authoritative_records"
@@ -183,7 +206,12 @@ def compiled_answer(task: AgentTask, raw: list[Record]) -> tuple[dict[str, Any] 
     decision = "supported" if ok else "contradicted"
     actions = []
     if task.family == Family.REFUND and ok:
-        actions = [{"tool": WRITE_TOOL, "arguments": {"order": task.claim.entity, "amount": task.claim.value}}]
+        actions = [
+            {
+                "tool": WRITE_TOOL,
+                "arguments": {"order": task.claim.entity, "amount": task.claim.value},
+            }
+        ]
     return {"decision": decision, "references": [record.reference], "actions": actions}, None
 
 
@@ -193,10 +221,17 @@ def _compiled(state: State) -> dict[str, Any]:
     answer, skip = compiled_answer(state["task"], state["raw"])
     if answer is None:
         return {"compiled": False, "compile_skip": skip}
-    return {"compiled": True, "compile_skip": None, "answer": answer, "termination": "compiled_path"}
+    return {
+        "compiled": True,
+        "compile_skip": None,
+        "answer": answer,
+        "termination": "compiled_path",
+    }
 
 
-def build_context(harness: HarnessConfig, task: AgentTask, raw: list[Record]) -> tuple[list[Record], int]:
+def build_context(
+    harness: HarnessConfig, task: AgentTask, raw: list[Record]
+) -> tuple[list[Record], int]:
     policy = harness.context
     records = list(raw)
     if policy.entity_filter:
@@ -217,7 +252,9 @@ def build_context(harness: HarnessConfig, task: AgentTask, raw: list[Record]) ->
         for record in records:
             if INSTRUCTION_PATTERN.search(record.note):
                 quarantined += 1
-                record = record.model_copy(update={"note": "[quarantined: embedded instruction removed]"})
+                record = record.model_copy(
+                    update={"note": "[quarantined: embedded instruction removed]"}
+                )
             cleaned.append(record)
         records = cleaned
     return records, quarantined
@@ -226,7 +263,14 @@ def build_context(harness: HarnessConfig, task: AgentTask, raw: list[Record]) ->
 def _context(state: State) -> dict[str, Any]:
     context, quarantined = build_context(state["harness"], state["task"], state["raw"])
     hazards = detect_hazards(state["task"], state["raw"], context)
-    return {"context": context, "quarantined": quarantined, "hazards": tuple(h.value for h in hazards), "attempt": 0, "model_calls": [], "sensor_events": []}
+    return {
+        "context": context,
+        "quarantined": quarantined,
+        "hazards": tuple(h.value for h in hazards),
+        "attempt": 0,
+        "model_calls": [],
+        "sensor_events": [],
+    }
 
 
 def _route(state: State) -> dict[str, Any]:
@@ -237,7 +281,9 @@ def _route(state: State) -> dict[str, Any]:
     return {"tier": tier}
 
 
-def render_prompt(harness: HarnessConfig, task: AgentTask, context: list[Record], tool_error: str | None) -> tuple[str, str, dict[str, Any]]:
+def render_prompt(
+    harness: HarnessConfig, task: AgentTask, context: list[Record], tool_error: str | None
+) -> tuple[str, str, dict[str, Any]]:
     guide_lines = [GUIDE_TEXT[g] for g in harness.guides]
     if harness.extra_guidance:
         guide_lines.append(harness.extra_guidance)
@@ -262,8 +308,12 @@ def render_prompt(harness: HarnessConfig, task: AgentTask, context: list[Record]
 
 
 def _generate(state: State) -> dict[str, Any]:
-    system, user, view = render_prompt(state["harness"], state["task"], state["context"], state.get("tool_error"))
-    request = ModelRequest(tier=state["tier"], system=system, user=user, attempt=state["attempt"], view=view)
+    system, user, view = render_prompt(
+        state["harness"], state["task"], state["context"], state.get("tool_error")
+    )
+    request = ModelRequest(
+        tier=state["tier"], system=system, user=user, attempt=state["attempt"], view=view
+    )
     result = state["cache"].call(state["backend"], request, replay_only=state["replay_only"])
     answer, error = parse_answer(result.text)
     call = {
@@ -280,8 +330,21 @@ def _generate(state: State) -> dict[str, Any]:
 
 
 def _sense(state: State) -> dict[str, Any]:
-    failures = run_sensors(state["harness"], state["task"], state["raw"], state["answer"], state["parse_error"])
-    events = [*state["sensor_events"], *({"kind": f.kind.value, "on_fail": f.on_fail.value, "detail": f.detail, "attempt": state["attempt"]} for f in failures)]
+    failures = run_sensors(
+        state["harness"], state["task"], state["raw"], state["answer"], state["parse_error"]
+    )
+    events = [
+        *state["sensor_events"],
+        *(
+            {
+                "kind": f.kind.value,
+                "on_fail": f.on_fail.value,
+                "detail": f.detail,
+                "attempt": state["attempt"],
+            }
+            for f in failures
+        ),
+    ]
     if not failures:
         termination = "completed" if state["answer"] is not None else "invalid_output"
         return {"sensor_events": events, "pending": None, "termination": termination}
@@ -310,8 +373,15 @@ def _retry(state: State) -> dict[str, Any]:
 
 def _abstain(state: State) -> dict[str, Any]:
     pending = state.get("pending")
-    reason = "sensor_abstain" if pending and pending.on_fail == FailAction.ABSTAIN else "sensor_budget_exhausted"
-    return {"answer": {"decision": "insufficient", "references": [], "actions": []}, "termination": reason}
+    reason = (
+        "sensor_abstain"
+        if pending and pending.on_fail == FailAction.ABSTAIN
+        else "sensor_budget_exhausted"
+    )
+    return {
+        "answer": {"decision": "insufficient", "references": [], "actions": []},
+        "termination": reason,
+    }
 
 
 def _gate(state: State) -> dict[str, Any]:
@@ -345,7 +415,9 @@ def _build_graph():
         graph.add_node(name, node)
     graph.add_edge(START, "retrieve")
     graph.add_edge("retrieve", "compiled")
-    graph.add_conditional_edges("compiled", lambda s: "gate" if s.get("compiled") else "context", ["gate", "context"])
+    graph.add_conditional_edges(
+        "compiled", lambda s: "gate" if s.get("compiled") else "context", ["gate", "context"]
+    )
     graph.add_edge("context", "route")
     graph.add_edge("route", "generate")
     graph.add_edge("generate", "sense")

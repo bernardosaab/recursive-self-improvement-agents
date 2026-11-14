@@ -65,7 +65,12 @@ HAZARD_RATES = {
     "drift": 0.0,
 }
 FINAL_DRIFT_RATE = 0.3
-OUTCOME_WEIGHTS = (("supported", 0.36), ("contradicted", 0.36), ("conflict", 0.14), ("missing", 0.14))
+OUTCOME_WEIGHTS = (
+    ("supported", 0.36),
+    ("contradicted", 0.36),
+    ("conflict", 0.14),
+    ("missing", 0.14),
+)
 
 
 class Claim(BaseModel):
@@ -129,13 +134,19 @@ def field_value(record: Record, name: str) -> int | None:
     return record.fields.get(alias) if alias else None
 
 
-def known_records(records: tuple[Record, ...] | list[Record], entity: str, as_of: int) -> list[Record]:
+def known_records(
+    records: tuple[Record, ...] | list[Record], entity: str, as_of: int
+) -> list[Record]:
     return [
-        r for r in records if r.entity == entity and r.recorded_at <= as_of and r.valid_from <= as_of
+        r
+        for r in records
+        if r.entity == entity and r.recorded_at <= as_of and r.valid_from <= as_of
     ]
 
 
-def authoritative(records: tuple[Record, ...] | list[Record], entity: str, as_of: int) -> list[Record]:
+def authoritative(
+    records: tuple[Record, ...] | list[Record], entity: str, as_of: int
+) -> list[Record]:
     known = known_records(records, entity, as_of)
     superseded = {r.supersedes for r in known if r.supersedes}
     return [r for r in known if r.reference not in superseded]
@@ -149,13 +160,19 @@ def compare(comparator: Comparator, record_value: int, claim_value: int) -> bool
     return record_value <= claim_value
 
 
-def resolve(claim: Claim, as_of: int, records: tuple[Record, ...] | list[Record]) -> tuple[str, frozenset[str]]:
+def resolve(
+    claim: Claim, as_of: int, records: tuple[Record, ...] | list[Record]
+) -> tuple[str, frozenset[str]]:
     """Reference semantics used to produce labels."""
-    current = [r for r in authoritative(records, claim.entity, as_of) if field_value(r, claim.field) is not None]
+    current = [
+        r
+        for r in authoritative(records, claim.entity, as_of)
+        if field_value(r, claim.field) is not None
+    ]
     values = {field_value(r, claim.field) for r in current}
     if not current or len(values) != 1:
         return "insufficient", frozenset()
-    record = current[0] if len(current) == 1 else sorted(current, key=lambda r: r.reference)[0]
+    record = current[0] if len(current) == 1 else min(current, key=lambda r: r.reference)
     value = field_value(record, claim.field)
     assert value is not None
     decision = "supported" if compare(claim.comparator, value, claim.value) else "contradicted"
@@ -163,7 +180,11 @@ def resolve(claim: Claim, as_of: int, records: tuple[Record, ...] | list[Record]
 
 
 def build_split(
-    split: str, n_per_family: int, *, families: tuple[Family, ...] | None = None, seed: int | None = None
+    split: str,
+    n_per_family: int,
+    *,
+    families: tuple[Family, ...] | None = None,
+    seed: int | None = None,
 ) -> tuple[Case, ...]:
     if split not in SPLIT_SEEDS:
         raise ValueError(f"unknown split: {split}")
@@ -179,7 +200,9 @@ def build_split(
     return tuple(cases)
 
 
-def _flip_value(comparator: Comparator, claim_value: int, make_true: bool, rng: random.Random) -> int:
+def _flip_value(
+    comparator: Comparator, claim_value: int, make_true: bool, rng: random.Random
+) -> int:
     delta = rng.randint(5, 60)
     if comparator == Comparator.EQ:
         return claim_value if make_true else claim_value + delta
@@ -193,7 +216,9 @@ def _build_case(rng: random.Random, split: str, family: Family, index: int) -> C
     task_id = f"{split}-{family.value}-{index:03d}"
     entity = f"{prefix}-{rng.randint(1000, 9999)}"
     as_of = rng.randint(60, 120)
-    outcome = rng.choices([o for o, _ in OUTCOME_WEIGHTS], weights=[w for _, w in OUTCOME_WEIGHTS])[0]
+    outcome = rng.choices([o for o, _ in OUTCOME_WEIGHTS], weights=[w for _, w in OUTCOME_WEIGHTS])[
+        0
+    ]
     drift = split == "final" and rng.random() < FINAL_DRIFT_RATE
     stored_field = FIELD_ALIASES[field_name] if drift else field_name
     hazards: set[str] = {f"outcome:{outcome}"} | ({"drift"} if drift else set())
@@ -227,7 +252,9 @@ def _build_case(rng: random.Random, split: str, family: Family, index: int) -> C
         )
         records.append(old)
 
-    current_fields = {stored_field: true_value} if outcome != "missing" else {"status_code": rng.randint(1, 9)}
+    current_fields = (
+        {stored_field: true_value} if outcome != "missing" else {"status_code": rng.randint(1, 9)}
+    )
     current = Record(
         reference=ref("current"),
         entity=entity,
@@ -241,7 +268,9 @@ def _build_case(rng: random.Random, split: str, family: Family, index: int) -> C
 
     if outcome == "conflict":
         hazards.add("conflict")
-        other_value = _flip_value(comparator, claim_value, not compare(comparator, true_value, claim_value), rng)
+        other_value = _flip_value(
+            comparator, claim_value, not compare(comparator, true_value, claim_value), rng
+        )
         records.append(
             Record(
                 reference=ref("parallel"),
@@ -262,7 +291,9 @@ def _build_case(rng: random.Random, split: str, family: Family, index: int) -> C
                 entity=entity,
                 kind="amendment",
                 fields={stored_field: late_value},
-                valid_from=as_of + rng.randint(1, 10) if future_valid else as_of - rng.randint(1, 8),
+                valid_from=as_of + rng.randint(1, 10)
+                if future_valid
+                else as_of - rng.randint(1, 8),
                 recorded_at=as_of + rng.randint(1, 12),
                 supersedes=current.reference,
             )
@@ -314,7 +345,9 @@ def _request_text(family: Family, claim: Claim) -> str:
                 f"the refundable amount? If so, stage the refund."
             )
         case Family.TRIAGE:
-            return f"Is the error rate of service {claim.entity} at least {claim.value} basis points?"
+            return (
+                f"Is the error rate of service {claim.entity} at least {claim.value} basis points?"
+            )
         case Family.CONTRACT:
             return f"Is the notice period of contract {claim.entity} at most {claim.value} days?"
     raise ValueError(family)
@@ -323,7 +356,9 @@ def _request_text(family: Family, claim: Claim) -> str:
 def describe_split(cases: tuple[Case, ...]) -> dict[str, Any]:
     summary: dict[str, Any] = {}
     for case in cases:
-        fam = summary.setdefault(case.task.family.value, {"tasks": 0, "expected": {}, "hazards": {}})
+        fam = summary.setdefault(
+            case.task.family.value, {"tasks": 0, "expected": {}, "hazards": {}}
+        )
         fam["tasks"] += 1
         fam["expected"][case.expected] = fam["expected"].get(case.expected, 0) + 1
         for hazard in case.hazards:

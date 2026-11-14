@@ -8,8 +8,8 @@ from typing import Any, Self
 import pytest
 from fastapi.testclient import TestClient
 
-from recursive_agent_self_improvement import api
-from recursive_agent_self_improvement.benchmark import (
+from recursive_self_improvement_agent import api
+from recursive_self_improvement_agent.benchmark import (
     TOOLS,
     BenchmarkTrace,
     Budget,
@@ -18,11 +18,11 @@ from recursive_agent_self_improvement.benchmark import (
     run_case,
     verify,
 )
-from recursive_agent_self_improvement.improvement import OpenAICompatibleProvider
-from recursive_agent_self_improvement.models import Decision, RuntimeConfig, TaskFamily
-from recursive_agent_self_improvement.runtime import config_hash
-from recursive_agent_self_improvement.store import Registry
-from recursive_agent_self_improvement.study import FIXED, INITIAL, Study
+from recursive_self_improvement_agent.improvement import OpenAICompatibleProvider
+from recursive_self_improvement_agent.models import Decision, RuntimeConfig, TaskFamily
+from recursive_self_improvement_agent.runtime import config_hash
+from recursive_self_improvement_agent.store import Registry
+from recursive_self_improvement_agent.study import FIXED, INITIAL, Study
 
 
 def test_families_use_distinct_scoped_tools() -> None:
@@ -164,7 +164,7 @@ def test_final_requires_exact_accepted_review_and_runs_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Exercise the final-test gate independently of this benchmark's negative promotion result.
-    monkeypatch.setattr("recursive_agent_self_improvement.study._eligible", lambda *_: True)
+    monkeypatch.setattr("recursive_self_improvement_agent.study._eligible", lambda *_: True)
     study = Study(tmp_path / "study.sqlite3")
     report = study.cycle()
     with pytest.raises(ValueError, match="currently active reviewed"):
@@ -181,12 +181,12 @@ def test_final_requires_exact_accepted_review_and_runs_once(
 
 
 def test_interrupted_final_stays_sealed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("recursive_agent_self_improvement.study._eligible", lambda *_: True)
+    monkeypatch.setattr("recursive_self_improvement_agent.study._eligible", lambda *_: True)
     study = Study(tmp_path / "study.sqlite3")
     report = study.cycle()
     study.review(1, report["report_hash"], report["candidate_hash"], "test-reviewer", True, "test")
     monkeypatch.setattr(
-        "recursive_agent_self_improvement.study.build_cases",
+        "recursive_self_improvement_agent.study.build_cases",
         lambda *_: (_ for _ in ()).throw(RuntimeError("simulated interruption")),
     )
     with pytest.raises(RuntimeError, match="simulated interruption"):

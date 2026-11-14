@@ -7,22 +7,22 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from recursive_agent_self_improvement.cli import run_final
-from recursive_agent_self_improvement.data import build_split
-from recursive_agent_self_improvement.evaluation import (
+from recursive_self_improvement_agent.cli import run_final
+from recursive_self_improvement_agent.data import build_split
+from recursive_self_improvement_agent.evaluation import (
     compare_with_heuristic,
     evaluate_pair,
     verify_answer,
 )
-from recursive_agent_self_improvement.improvement import (
+from recursive_self_improvement_agent.improvement import (
     DeterministicFakeProvider,
     apply_proposal,
     validate_proposal,
 )
-from recursive_agent_self_improvement.models import CandidateProposal, Decision, RuntimeConfig
-from recursive_agent_self_improvement.runtime import TrustedToolExecutor, run_task
-from recursive_agent_self_improvement.service import make_candidate
-from recursive_agent_self_improvement.store import Registry
+from recursive_self_improvement_agent.models import CandidateProposal, Decision, RuntimeConfig
+from recursive_self_improvement_agent.runtime import TrustedToolExecutor, run_task
+from recursive_self_improvement_agent.service import make_candidate
+from recursive_self_improvement_agent.store import Registry
 
 BASELINE = RuntimeConfig(
     retrieval_strategy="single_pass",

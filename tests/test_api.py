@@ -4,9 +4,9 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from recursive_agent_self_improvement import api
-from recursive_agent_self_improvement.models import RuntimeConfig
-from recursive_agent_self_improvement.store import Registry
+from recursive_self_improvement_agent import api
+from recursive_self_improvement_agent.models import RuntimeConfig
+from recursive_self_improvement_agent.store import Registry
 
 
 def test_local_api_exposes_bounded_version_changes(tmp_path: Path, monkeypatch) -> None:

@@ -12,7 +12,7 @@ The newer study adds family-specific read tools, fact-based synthetic tasks, sou
 python -m pip install -e ".[dev]"
 rasis --db data\study-v2.sqlite3 --study cycle --provider fake --output results\cycle-1.json
 $env:RASIS_DB_PATH = "data\study-v2.sqlite3"
-uvicorn recursive_agent_self_improvement.api:app
+uvicorn recursive_self_improvement_agent.api:app
 ```
 
 Open `http://127.0.0.1:8000/study/review/1` to inspect the strategy diff, trace-linked diagnostics, paired regressions, blocked requests, provider usage, and decision history. Accepting requires an eligible proposal and binds the exact report and version hashes; a rejected proposal leaves the active strategy unchanged. The reviewer field is self-reported local metadata, not authentication.
@@ -78,7 +78,7 @@ The demo deliberately stops with the review pending; it does not manufacture a h
 
 ```powershell
 $env:RASIS_DB_PATH = "data\offline.sqlite3"
-uvicorn recursive_agent_self_improvement.api:app --reload
+uvicorn recursive_self_improvement_agent.api:app --reload
 ```
 
 Inspect the version configuration and selection report at `/versions` and `/reports/{report_id}`. Then submit an explicit local review decision (replace the IDs with those printed in `results\offline-run.json`):
@@ -116,7 +116,7 @@ Start the local illustrative API after installing the package:
 
 ```powershell
 $env:RASIS_DB_PATH = "data\offline.sqlite3"
-uvicorn recursive_agent_self_improvement.api:app --reload
+uvicorn recursive_self_improvement_agent.api:app --reload
 ```
 
 The API exposes health, version/diff listing, report inspection, decision history, bounded version creation, review, and rollback. It does not expose final-test labels or an evaluation endpoint.

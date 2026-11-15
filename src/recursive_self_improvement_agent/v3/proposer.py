@@ -166,6 +166,7 @@ STRUCTURAL_REPAIRS: dict[str, list[list[dict[str, Any]]]] = {
             _op(op="set_context", field="entity_filter", value=True),
             _op(op="set_context", field="max_records", value=6),
         ],
+        [_op(op="set_checker", checker="large"), _op(op="set_check_when", check_when="on_hazard")],
         [_op(op="add_escalation", hazard=Hazard.LONG_CONTEXT)],
         [_op(op="set_default_tier", tier=Tier.LARGE)],
     ],
@@ -314,6 +315,10 @@ class RandomProposer:
                 return _op(op=choice, hazard=rng.choice(list(Hazard)))
             case "set_tool_retries":
                 return _op(op=choice, retries=rng.randint(0, 2))
+            case "set_checker":
+                return _op(op=choice, checker=rng.choice(["none", "small", "large"]))
+            case "set_check_when":
+                return _op(op=choice, check_when=rng.choice(["always", "on_hazard", "on_write"]))
             case _:
                 return _op(
                     op="add_compiled",
@@ -353,6 +358,8 @@ FLAT_OP_SCHEMA: dict[str, Any] = {
         "tier": {"type": "string", "enum": [t.value for t in Tier]},
         "hazard": {"type": "string", "enum": [h.value for h in Hazard]},
         "retries": {"type": "integer"},
+        "checker": {"type": "string", "enum": ["none", "small", "large"]},
+        "check_when": {"type": "string", "enum": ["always", "on_hazard", "on_write"]},
         "family": {
             "type": "string",
             "enum": [Family.INVOICE.value, Family.REFUND.value, Family.TRIAGE.value],
@@ -372,6 +379,8 @@ OP_FIELDS = {
     "add_escalation": ("hazard",),
     "remove_escalation": ("hazard",),
     "set_tool_retries": ("retries",),
+    "set_checker": ("checker",),
+    "set_check_when": ("check_when",),
     "add_compiled": ("family",),
 }
 
@@ -383,7 +392,9 @@ OLLAMA_SYSTEM = (
     "quarantine (removes instruction-like text from records), sensors (deterministic checks on "
     "the model answer with on_fail retry|escalate|abstain), routing (default tier small|large and "
     "hazards that escalate to large; large costs about 6x), tool_retries (0-2), compiled recipes "
-    "(deterministic known path per family; skips to the model when preconditions fail). Prefer "
+    "(deterministic known path per family; skips to the model when preconditions fail), team "
+    "(an independent checker role, none|small|large, reviewing the answer always, on_hazard "
+    "or on_write; an objection escalates the maker once or abstains). Prefer "
     "structural fixes that make a failure impossible over advice. Avoid edits listed as "
     'unhelpful. Reply with JSON: {"ops": [...1-4 ops...], "cited_failures": [cluster ids], '
     '"rationale": "..."}.'

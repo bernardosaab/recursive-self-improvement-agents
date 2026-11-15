@@ -100,6 +100,74 @@ def render(report: dict[str, Any]) -> str:
         f"Harness effect with small model: {f['harness_effect_small']:+.3f}; with large model: {f['harness_effect_large']:+.3f}. Model effect on baseline harness: {f['model_effect_baseline']:+.3f}; on ratchet harness: {f['model_effect_ratchet']:+.3f}.",
     ]
 
+    for arm, attr in report.get("attribution", {}).items():
+        if not attr.get("edits"):
+            continue
+        fv = attr["full_vs_baseline"]
+        lines += [
+            "",
+            f"## Interventional attribution of promoted edits ({arm})",
+            "",
+            (
+                "Provenance (the registry) says which edit was promoted, by which proposer, under "
+                "which review. Attribution says what each edit *caused*. Each edit is removed from "
+                "the final harness (leave-one-out) or applied alone to the baseline (add-one), and "
+                "the variants run on the identical sealed final tasks."
+            ),
+            "",
+            (
+                f"Full harness vs baseline: {fv['accuracy_delta']:+.3f} "
+                f"({fv['accuracy_delta_ci95'][0]:+.3f}, {fv['accuracy_delta_ci95'][1]:+.3f})."
+            ),
+            "",
+            "| Cycle | Source | Edit | Leave-one-out effect (95% CI) | Add-one effect (95% CI) | Interaction | Review event |",
+            "|---:|---|---|---:|---:|---:|---:|",
+        ]
+        for e in attr["edits"]:
+            ops = "; ".join(
+                o["op"] + ":" + str(next((v for k, v in o.items() if k != "op"), ""))
+                for o in e["ops"]
+            )
+            if not e["separable"]:
+                lines.append(
+                    f"| {e['cycle']} | {e['source']} | {ops} | not separable | | | {e['review_seq']} |"
+                )
+                continue
+            lo, ad = e["leave_one_out"], e["add_one"]
+            lines.append(
+                f"| {e['cycle']} | {e['source']} | {ops} | {lo['accuracy_delta']:+.3f} "
+                f"({lo['accuracy_delta_ci95'][0]:+.3f}, {lo['accuracy_delta_ci95'][1]:+.3f}) | "
+                f"{ad['accuracy_delta']:+.3f} ({ad['accuracy_delta_ci95'][0]:+.3f}, "
+                f"{ad['accuracy_delta_ci95'][1]:+.3f}) | {e['interaction']:+.3f} | {e['review_seq']} |"
+            )
+
+    lines += ["", "## Model ledger on the final split (which model did what)", ""]
+    lines += [
+        "| Arm | Role / model | Calls | Tokens in | Tokens out | Cost |",
+        "|---|---|---:|---:|---:|---:|",
+    ]
+    for arm, r in report["final"]["arms"].items():
+        for key, row in r.get("model_ledger", {}).items():
+            if key.startswith("role:"):
+                lines.append(
+                    f"| {arm} | {key[5:]} | {row['calls']} | {row['input_tokens']} | "
+                    f"{row['output_tokens']} | {_usd(row['cost_usd'])} |"
+                )
+    teams = {
+        a: r["team"] for a, r in report["final"]["arms"].items() if r.get("team", {}).get("reviews")
+    }
+    if teams:
+        lines += [
+            "",
+            "Checker reviews on the final split: "
+            + "; ".join(
+                f"{a}: {t['reviews']} reviews, {t['objections']} objections, "
+                f"{t['unresolved_abstentions']} unresolved abstentions"
+                for a, t in teams.items()
+            )
+            + ".",
+        ]
+
     lines += [
         "",
         "## Adversarial audits",

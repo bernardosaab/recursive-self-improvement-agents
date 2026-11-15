@@ -21,7 +21,12 @@ from recursive_self_improvement_agent.v3.harness import (
     apply_proposal,
     harness_hash,
 )
-from recursive_self_improvement_agent.v3.models import ModelCache, OutOfSupport, SimulatedBackend
+from recursive_self_improvement_agent.v3.models import (
+    ModelCache,
+    OutOfSupport,
+    SimulatedBackend,
+    request_key,
+)
 from recursive_self_improvement_agent.v3.proposer import OllamaProposer, ProposalMemory
 from recursive_self_improvement_agent.v3.ratchet import (
     RatchetSuite,
@@ -444,3 +449,61 @@ def test_chunked_resumable_run_matches_uninterrupted_run(tmp_path):
     CHECKPOINT.reset()
     assert chunks > 1
     assert resumed == reference
+
+
+class _DisagreeingBackend:
+    """Maker always asserts 'supported' with a refund; checker always objects."""
+
+    name = "stub"
+
+    def model_id(self, tier):
+        return f"stub-{tier.value}"
+
+    def generate(self, request):
+        from recursive_self_improvement_agent.v3.models import ModelResult
+
+        if request.view.get("role") == "checker":
+            text = json.dumps({"agree": False, "decision": "contradicted", "reason": "no"})
+        else:
+            claim = request.view["claim"]
+            text = json.dumps(
+                {
+                    "decision": "supported",
+                    "references": [request.view["records"][0]["reference"]],
+                    "actions": [
+                        {
+                            "tool": "stage_refund",
+                            "arguments": {"order": claim["entity"], "amount": claim["value"]},
+                        }
+                    ],
+                }
+            )
+        return ModelResult(request_key("x", request)[:8], request.tier, text, 10, 10, 0.0)
+
+
+def test_checker_objection_escalates_once_then_abstains_without_writing():
+    from recursive_self_improvement_agent.v3.harness import TeamPolicy
+
+    harness = HarnessConfig(team=TeamPolicy(checker="large"))
+    case = _refund_case()
+    trace = run_case(case, harness, _DisagreeingBackend(), ModelCache())
+    makers = [c for c in trace.model_calls if c["role"] == "maker"]
+    checkers = [c for c in trace.model_calls if c["role"] == "checker"]
+    assert [c["tier"] for c in makers] == ["small", "large"]
+    assert len(checkers) == 2 and all(not e["agree"] for e in trace.team_events)
+    assert trace.termination == "unresolved_disagreement"
+    assert trace.decision == "insufficient" and trace.writes == ()
+    assert len(trace.model_calls) <= 4
+
+
+def test_guides_cite_versioned_wiki_pages_and_archives_cannot_bind():
+    from recursive_self_improvement_agent.v3.harness import Guide
+
+    harness = HarnessConfig(guides=(Guide.TEMPORAL_RULE,))
+    trace = run_case(_refund_case(), harness, SimulatedBackend(), ModelCache())
+    assert trace.guidance_versions == ("record-validity@3.0 (owner: finance-ops)",)
+    with pytest.raises(ValueError):
+        apply_proposal(
+            BASELINE_HARNESS,
+            _proposal(BASELINE_HARNESS, [{"op": "add_guide", "guide": "record-validity@2.0"}]),
+        )

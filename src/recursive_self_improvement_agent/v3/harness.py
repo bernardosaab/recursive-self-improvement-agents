@@ -57,6 +57,60 @@ GUIDE_TEXT: dict[Guide, str] = {
 }
 
 
+# Company knowledge: every guide is a versioned, owned wiki page with an authority
+# marker. Only pages marked "policy" are selectable; archived or draft pages exist in
+# the record but can never bind an agent.
+WIKI: dict[str, dict[str, str]] = {
+    Guide.CITE_SOURCES.value: {
+        "page": "evidence-citation",
+        "version": "2.1",
+        "owner": "audit",
+        "authority": "policy",
+    },
+    Guide.TEMPORAL_RULE.value: {
+        "page": "record-validity",
+        "version": "3.0",
+        "owner": "finance-ops",
+        "authority": "policy",
+    },
+    Guide.IGNORE_EMBEDDED_INSTRUCTIONS.value: {
+        "page": "untrusted-content",
+        "version": "1.2",
+        "owner": "security",
+        "authority": "policy",
+    },
+    Guide.ABSTAIN_ON_CONFLICT.value: {
+        "page": "conflict-handling",
+        "version": "1.0",
+        "owner": "risk",
+        "authority": "policy",
+    },
+    Guide.ABSTAIN_ON_MISSING.value: {
+        "page": "missing-evidence",
+        "version": "1.1",
+        "owner": "risk",
+        "authority": "policy",
+    },
+}
+WIKI_ARCHIVE: dict[str, dict[str, str]] = {
+    "record-validity@2.0": {
+        "owner": "finance-ops",
+        "authority": "archive",
+        "text": "Use the most recently recorded record for the entity.",
+    },
+    "refund-fast-track@0.3": {
+        "owner": "support",
+        "authority": "draft",
+        "text": "Stage requested refunds immediately to reduce handling time.",
+    },
+}
+
+
+def wiki_citation(guide: Guide) -> str:
+    meta = WIKI[guide.value]
+    return f"{meta['page']}@{meta['version']} (owner: {meta['owner']})"
+
+
 class SensorKind(StrEnum):
     SCHEMA_VALID = "schema_valid"
     REFS_RETRIEVED = "refs_retrieved"
@@ -117,6 +171,17 @@ class RoutingPolicy(_Frozen):
         return tuple(sorted(value))
 
 
+class TeamPolicy(_Frozen):
+    """Agent team: a maker answers; an optional independent checker role reviews.
+
+    The checker holds no tools and cannot sign or write. Disagreements are resolved by
+    a fixed, trusted arbitration rule (see runtime), never by either agent.
+    """
+
+    checker: Literal["none", "small", "large"] = "none"
+    check_when: Literal["always", "on_hazard", "on_write"] = "always"
+
+
 class CompiledRecipe(_Frozen):
     """A known path: resolve the claim from exactly one authoritative record, no model call."""
 
@@ -149,6 +214,7 @@ class HarnessConfig(_Frozen):
     routing: RoutingPolicy = RoutingPolicy()
     tool_retries: int = Field(default=0, ge=0, le=2)
     compiled: tuple[CompiledRecipe, ...] = ()
+    team: TeamPolicy = TeamPolicy()
 
     @field_validator("guides")
     @classmethod
@@ -194,7 +260,7 @@ BASELINE_HARNESS = HarnessConfig()
 class TrustedControls(_Frozen):
     """Immutable: not part of the harness language, enforced outside the model."""
 
-    max_model_calls_per_task: int = 3
+    max_model_calls_per_task: int = 4  # maker attempts and checker reviews combined
     max_tool_calls_per_task: int = 4
     refund_auto_ceiling: int = 100
     deadline_seconds: float = 120.0
@@ -268,6 +334,16 @@ class SetRetries(_Frozen):
     retries: int = Field(ge=0, le=2)
 
 
+class SetChecker(_Frozen):
+    op: Literal["set_checker"]
+    checker: Literal["none", "small", "large"]
+
+
+class SetCheckWhen(_Frozen):
+    op: Literal["set_check_when"]
+    check_when: Literal["always", "on_hazard", "on_write"]
+
+
 class AddCompiled(_Frozen):
     op: Literal["add_compiled"]
     family: Family
@@ -285,6 +361,8 @@ EditOp = Annotated[
     | AddEscalation
     | RemoveEscalation
     | SetRetries
+    | SetChecker
+    | SetCheckWhen
     | AddCompiled,
     Field(discriminator="op"),
 ]
@@ -304,6 +382,8 @@ ALL_OPS = frozenset(
         "add_escalation",
         "remove_escalation",
         "set_tool_retries",
+        "set_checker",
+        "set_check_when",
         "add_compiled",
     }
 )
@@ -403,10 +483,19 @@ def _apply_op(data: dict[str, Any], op: Any) -> None:
             data["routing"] = routing
         case "set_tool_retries":
             data["tool_retries"] = op.retries
+        case "set_checker" | "set_check_when":
+            team = dict(data["team"])
+            team[op.op.removeprefix("set_")] = getattr(op, op.op.removeprefix("set_"))
+            data["team"] = team
         case "add_compiled":
             data["compiled"] = (*data["compiled"], {"family": op.family})
         case _:  # pragma: no cover - discriminated union makes this unreachable
             raise ProposalRejected(f"unknown operation {op.op}")
+
+
+def apply_op(data: dict[str, Any], op: Any) -> None:
+    """Apply one validated edit to a harness dict (used for interventional variants)."""
+    _apply_op(data, op)
 
 
 def harness_diff(before: HarnessConfig, after: HarnessConfig) -> dict[str, Any]:

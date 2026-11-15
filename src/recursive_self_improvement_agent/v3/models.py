@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from .harness import Guide, Tier
-from .tasks import Claim, Record, authoritative, compare, field_value, known_records
+from .tasks import Claim, Record, authoritative, compare, field_value, known_records, resolve
 
 # Illustrative hosted-equivalent prices (USD per million tokens) used as a cost proxy
 # for routing economics. They are assumptions, not measured prices of local inference.
@@ -43,6 +43,8 @@ SIMULATED_PROFILES: dict[Tier, dict[str, float]] = {
         "per_record": 0.03,
         "cite_drop": 0.25,
         "alias": 0.30,
+        "check_detect": 0.55,
+        "check_false_alarm": 0.06,
     },
     Tier.LARGE: {
         "base": 0.03,
@@ -53,6 +55,8 @@ SIMULATED_PROFILES: dict[Tier, dict[str, float]] = {
         "per_record": 0.01,
         "cite_drop": 0.08,
         "alias": 0.05,
+        "check_detect": 0.85,
+        "check_false_alarm": 0.03,
     },
 }
 GUIDE_EFFECT = 0.6  # assumption: advisory guides reduce, but do not remove, a failure mode
@@ -290,7 +294,27 @@ class SimulatedBackend:
         )
 
 
+def _simulate_checker(
+    rng: random.Random, p: dict[str, float], view: dict[str, Any]
+) -> dict[str, Any]:
+    claim = Claim.model_validate(view["claim"])
+    records = [Record.model_validate(r) for r in view["records"]]
+    careful, refs = resolve(claim, view["as_of"], records)
+    proposed = view["proposed"]
+    wrong = proposed["decision"] != careful or (
+        careful != "insufficient" and set(proposed["references"]) != set(refs)
+    )
+    flagged = rng.random() < (p["check_detect"] if wrong else p["check_false_alarm"])
+    return {
+        "agree": not flagged,
+        "decision": careful if flagged else proposed["decision"],
+        "reason": "simulated review",
+    }
+
+
 def _simulate(rng: random.Random, p: dict[str, float], view: dict[str, Any]) -> dict[str, Any]:
+    if view.get("role") == "checker":
+        return _simulate_checker(rng, p, view)
     claim = Claim.model_validate(view["claim"])
     as_of: int = view["as_of"]
     guides = set(view["guides"])

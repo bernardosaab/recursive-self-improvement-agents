@@ -27,10 +27,22 @@ from .harness import (
     Tier,
     TrustedControls,
     harness_hash,
+    wiki_citation,
 )
 from .models import Backend, ModelCache, ModelRequest
 from .sensors import INSTRUCTION_PATTERN, SensorFailure, detect_hazards, parse_answer, run_sensors
 from .tasks import TOOLS, WRITE_TOOL, AgentTask, Case, Environment, Record, authoritative, compare
+
+CHECKER_SYSTEM = (
+    "You are an independent checker on an agent team. You hold no tools and cannot "
+    "execute anything. Given a claim, the records and a proposed answer, decide whether "
+    "the proposed decision and cited references are correct under these rules: use only "
+    "records recorded on/before the as-of day whose validity has started and that are not "
+    "superseded by such a record; if authoritative records disagree or none states the "
+    "field, the correct decision is 'insufficient'. Comparators: eq equal, ge record >= "
+    'claimed, le record <= claimed. Reply with JSON only: {"agree": true|false, '
+    '"decision": "supported"|"contradicted"|"insufficient", "reason": "..."}.'
+)
 
 BASE_SYSTEM = (
     "You verify a business claim against records returned by tools. Reply with JSON only: "
@@ -132,6 +144,8 @@ class TaskTrace(BaseModel):
     tool_events: tuple[dict[str, Any], ...]
     model_calls: tuple[dict[str, Any], ...]
     sensor_events: tuple[dict[str, Any], ...]
+    team_events: tuple[dict[str, Any], ...] = ()
+    guidance_versions: tuple[str, ...] = ()
     hazards_detected: tuple[str, ...]
     context_references: tuple[str, ...]
     quarantined_notes: int
@@ -167,6 +181,9 @@ class State(TypedDict):
     compiled: NotRequired[bool]
     compile_skip: NotRequired[str | None]
     writes: NotRequired[list[dict[str, Any]]]
+    team_events: NotRequired[list[dict[str, Any]]]
+    check_route: NotRequired[str]
+    abstain_reason: NotRequired[str]
 
 
 def _retrieve(state: State) -> dict[str, Any]:
@@ -284,7 +301,7 @@ def _route(state: State) -> dict[str, Any]:
 def render_prompt(
     harness: HarnessConfig, task: AgentTask, context: list[Record], tool_error: str | None
 ) -> tuple[str, str, dict[str, Any]]:
-    guide_lines = [GUIDE_TEXT[g] for g in harness.guides]
+    guide_lines = [f"[{wiki_citation(g)}] {GUIDE_TEXT[g]}" for g in harness.guides]
     if harness.extra_guidance:
         guide_lines.append(harness.extra_guidance)
     system = BASE_SYSTEM + ("\nGuidance:\n- " + "\n- ".join(guide_lines) if guide_lines else "")
@@ -317,6 +334,7 @@ def _generate(state: State) -> dict[str, Any]:
     result = state["cache"].call(state["backend"], request, replay_only=state["replay_only"])
     answer, error = parse_answer(result.text)
     call = {
+        "role": "maker",
         "model_id": result.model_id,
         "tier": result.tier.value,
         "attempt": state["attempt"],
@@ -355,7 +373,7 @@ def _sense(state: State) -> dict[str, Any]:
 def _after_sense(state: State) -> str:
     pending = state.get("pending")
     if pending is None:
-        return "gate"
+        return "check"
     budget_left = len(state["model_calls"]) < TRUSTED.max_model_calls_per_task
     if pending.on_fail == FailAction.ABSTAIN or not budget_left:
         return "abstain"
@@ -371,9 +389,108 @@ def _retry(state: State) -> dict[str, Any]:
     return {"attempt": state["attempt"] + 1, "tier": tier, "pending": None}
 
 
+def _check_required(state: State) -> bool:
+    team = state["harness"].team
+    answer = state.get("answer")
+    if team.checker == "none" or answer is None:
+        return False
+    if team.check_when == "on_hazard":
+        return bool(state.get("hazards"))
+    if team.check_when == "on_write":
+        return any(a["tool"] == WRITE_TOOL for a in answer["actions"])
+    return True
+
+
+def _check(state: State) -> dict[str, Any]:
+    """Independent checker role, then trusted arbitration (fixed, not configurable).
+
+    Agreement releases the answer to the gate. An objection escalates the maker to the
+    large tier once when it ran small and budget remains for another attempt and review;
+    otherwise the task abstains. The checker can never write, sign or override the gate.
+    """
+    if not _check_required(state):
+        return {"check_route": "gate"}
+    events = list(state.get("team_events", []))
+    calls = state["model_calls"]
+    if len(calls) >= TRUSTED.max_model_calls_per_task:
+        events.append({"role": "checker", "verdict": "not_run_budget", "attempt": state["attempt"]})
+        return {
+            "check_route": "abstain",
+            "team_events": events,
+            "abstain_reason": "review_unavailable",
+        }
+    tier = Tier(state["harness"].team.checker)
+    answer = state["answer"]
+    assert answer is not None
+    records = [r.model_dump(mode="json") for r in state["context"]]
+    proposed = {"decision": answer["decision"], "references": answer["references"]}
+    user = json.dumps(
+        {
+            "claim": state["task"].claim.model_dump(mode="json"),
+            "as_of_day": state["task"].as_of,
+            "records": records,
+            "proposed_answer": proposed,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    view = {
+        "role": "checker",
+        "family": state["task"].family.value,
+        "claim": state["task"].claim.model_dump(mode="json"),
+        "as_of": state["task"].as_of,
+        "records": records,
+        "proposed": proposed,
+    }
+    request = ModelRequest(
+        tier=tier, system=CHECKER_SYSTEM, user=user, attempt=state["attempt"], view=view
+    )
+    result = state["cache"].call(state["backend"], request, replay_only=state["replay_only"])
+    try:
+        verdict = json.loads(result.text)
+        agree = isinstance(verdict, dict) and verdict.get("agree") is True
+    except (TypeError, ValueError):
+        verdict, agree = {}, False
+    if not isinstance(verdict, dict):
+        verdict = {}
+    call = {
+        "role": "checker",
+        "model_id": result.model_id,
+        "tier": result.tier.value,
+        "attempt": state["attempt"],
+        "input_tokens": result.input_tokens,
+        "output_tokens": result.output_tokens,
+        "latency_s": round(result.latency_s, 4),
+        "cost_usd": result.cost_usd,
+        "reused": result.cached,
+    }
+    events.append(
+        {
+            "role": "checker",
+            "tier": tier.value,
+            "agree": agree,
+            "maker_decision": answer["decision"],
+            "maker_tier": state["tier"].value,
+            "checker_decision": verdict.get("decision"),
+            "attempt": state["attempt"],
+        }
+    )
+    update: dict[str, Any] = {"model_calls": [*calls, call], "team_events": events}
+    if agree:
+        return {**update, "check_route": "gate"}
+    room = TRUSTED.max_model_calls_per_task - len(calls) - 1
+    if state["tier"] == Tier.SMALL and room >= 2:
+        return {**update, "check_route": "escalate"}
+    return {**update, "check_route": "abstain", "abstain_reason": "unresolved_disagreement"}
+
+
+def _escalate(state: State) -> dict[str, Any]:
+    return {"attempt": state["attempt"] + 1, "tier": Tier.LARGE, "pending": None}
+
+
 def _abstain(state: State) -> dict[str, Any]:
     pending = state.get("pending")
-    reason = (
+    reason = state.get("abstain_reason") or (
         "sensor_abstain"
         if pending and pending.on_fail == FailAction.ABSTAIN
         else "sensor_budget_exhausted"
@@ -409,6 +526,8 @@ def _build_graph():
         ("generate", _generate),
         ("sense", _sense),
         ("retry", _retry),
+        ("check", _check),
+        ("escalate", _escalate),
         ("abstain", _abstain),
         ("gate", _gate),
     ):
@@ -421,7 +540,13 @@ def _build_graph():
     graph.add_edge("context", "route")
     graph.add_edge("route", "generate")
     graph.add_edge("generate", "sense")
-    graph.add_conditional_edges("sense", _after_sense, ["gate", "retry", "abstain"])
+    graph.add_conditional_edges("sense", _after_sense, ["check", "retry", "abstain"])
+    graph.add_conditional_edges(
+        "check",
+        lambda s: s["check_route"],
+        {"gate": "gate", "escalate": "escalate", "abstain": "abstain"},
+    )
+    graph.add_edge("escalate", "generate")
     graph.add_edge("retry", "generate")
     graph.add_edge("abstain", "gate")
     graph.add_edge("gate", END)
@@ -466,6 +591,8 @@ def run_case(
         tool_events=tuple(executor.events),
         model_calls=tuple(calls),
         sensor_events=tuple(state.get("sensor_events", [])),
+        team_events=tuple(state.get("team_events", [])),
+        guidance_versions=tuple(wiki_citation(g) for g in harness.guides),
         hazards_detected=tuple(state.get("hazards", ())),
         context_references=tuple(r.reference for r in state.get("context", [])),
         quarantined_notes=state.get("quarantined", 0),

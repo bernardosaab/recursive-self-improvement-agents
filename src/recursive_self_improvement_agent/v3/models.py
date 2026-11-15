@@ -420,36 +420,62 @@ class OllamaBackend:
         large: str = "qwen2.5:7b",
         host: str = "http://127.0.0.1:11434",
         timeout_s: float = 180.0,
+        num_ctx: int = 4096,
     ) -> None:
         self.models = {Tier.SMALL: small, Tier.LARGE: large}
         self.host = host.rstrip("/")
         self.timeout_s = timeout_s
+        self.num_ctx = num_ctx  # both tiers must fit in 8 GB VRAM together
 
     def model_id(self, tier: Tier) -> str:
         return f"ollama/{self.models[tier]}"
 
     def chat(
-        self, model: str, system: str, user: str, attempt: int, schema: dict[str, Any]
+        self,
+        model: str,
+        system: str,
+        user: str,
+        attempt: int,
+        schema: dict[str, Any],
+        max_tokens: int = 512,
     ) -> dict[str, Any]:
         seed = int(hashlib.sha256(f"{system}|{user}|{attempt}".encode()).hexdigest()[:8], 16)
         body = {
             "model": model,
             "stream": False,
             "format": schema,
-            "options": {"temperature": 0.0 if attempt == 0 else 0.7, "seed": seed, "num_ctx": 8192},
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "options": {
+                "temperature": 0.0 if attempt == 0 else 0.7,
+                "seed": seed,
+                "num_ctx": self.num_ctx,
+                "num_predict": max_tokens,  # caps runaway generation; truncation = invalid
+            },
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
         }
-        request = urllib.request.Request(
-            f"{self.host}/api/chat",
-            data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
-                return json.loads(response.read())
-        except urllib.error.URLError as error:  # pragma: no cover - requires a live server
-            raise ConnectionError(f"Ollama is not reachable at {self.host}: {error}") from error
+        data = json.dumps(body).encode("utf-8")
+        last: Exception | None = None
+        for wait in (0, 5, 15, 30):  # Ollama recovers from GPU OOM by unloading models
+            if wait:
+                time.sleep(wait)
+            request = urllib.request.Request(
+                f"{self.host}/api/chat",
+                data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
+                    return json.loads(response.read())
+            except urllib.error.HTTPError as error:  # pragma: no cover - live server only
+                last = error
+                if error.code < 500:
+                    break
+            except (urllib.error.URLError, TimeoutError, OSError) as error:  # pragma: no cover
+                last = error
+        raise ConnectionError(f"Ollama request failed at {self.host}: {last}")  # pragma: no cover
 
     def generate(self, request: ModelRequest) -> ModelResult:
         started = time.perf_counter()

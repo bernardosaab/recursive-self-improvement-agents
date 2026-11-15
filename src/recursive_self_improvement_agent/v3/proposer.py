@@ -454,7 +454,7 @@ class OllamaProposer:
                 self.namespace,
                 [model, OLLAMA_SYSTEM, user, seed, schema],
                 lambda model=model, seed=seed: self.backend.chat(
-                    model, OLLAMA_SYSTEM, user, seed, schema
+                    model, OLLAMA_SYSTEM, user, seed, schema, max_tokens=1024
                 ),
             )
             self.usage.calls += 1

@@ -28,6 +28,8 @@ jobs:
         run: python -m pytest -q
       - name: Offline smoke run (deterministic fake provider)
         run: rasis --provider fake --db ci.sqlite3 --output ci-results/offline.json
+      - name: v3 offline smoke study (simulated backend, small sizes)
+        run: rasis-v3 run --provider simulated --approval standing --n-dev 12 --n-selection 20 --n-final 10 --cycles 2 --arms fixed,ratchet,prompt_only --db ci-results/v3.sqlite3 --out ci-results/v3
       - uses: actions/upload-artifact@v4
         if: matrix.python-version == '3.13'
         with:

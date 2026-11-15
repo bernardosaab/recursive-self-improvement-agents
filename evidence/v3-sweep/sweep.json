@@ -1,0 +1,417 @@
+{
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "guide_effects": [
+    1.0,
+    0.6,
+    0.2,
+    0.0
+  ],
+  "arms": [
+    "fixed",
+    "ratchet",
+    "prompt_only",
+    "random"
+  ],
+  "runs": [
+    {
+      "fixed": 0.45,
+      "fixed_held_out": 0.45,
+      "guide_effect": 1.0,
+      "prompt_only": 0.45,
+      "prompt_only_held_out": 0.45,
+      "random": 0.69375,
+      "random_held_out": 0.65,
+      "ratchet": 0.88125,
+      "ratchet_held_out": 0.7,
+      "ratchet_minus_prompt_only": 0.43125,
+      "ratchet_vs_prompt_only_p": 2.91096598559025e-16,
+      "seed": 0
+    },
+    {
+      "fixed": 0.4,
+      "fixed_held_out": 0.375,
+      "guide_effect": 1.0,
+      "prompt_only": 0.4,
+      "prompt_only_held_out": 0.375,
+      "random": 0.8,
+      "random_held_out": 0.775,
+      "ratchet": 0.85625,
+      "ratchet_held_out": 0.9,
+      "ratchet_minus_prompt_only": 0.45625,
+      "ratchet_vs_prompt_only_p": 1.4495364161868997e-18,
+      "seed": 1
+    },
+    {
+      "fixed": 0.40625,
+      "fixed_held_out": 0.425,
+      "guide_effect": 1.0,
+      "prompt_only": 0.40625,
+      "prompt_only_held_out": 0.425,
+      "random": 0.5125,
+      "random_held_out": 0.5,
+      "ratchet": 0.925,
+      "ratchet_held_out": 0.9,
+      "ratchet_minus_prompt_only": 0.51875,
+      "ratchet_vs_prompt_only_p": 1.1112241759254372e-20,
+      "seed": 2
+    },
+    {
+      "fixed": 0.3625,
+      "fixed_held_out": 0.375,
+      "guide_effect": 1.0,
+      "prompt_only": 0.3625,
+      "prompt_only_held_out": 0.375,
+      "random": 0.85625,
+      "random_held_out": 0.875,
+      "ratchet": 0.81875,
+      "ratchet_held_out": 0.75,
+      "ratchet_minus_prompt_only": 0.45625,
+      "ratchet_vs_prompt_only_p": 7.088912032076993e-16,
+      "seed": 3
+    },
+    {
+      "fixed": 0.3875,
+      "fixed_held_out": 0.325,
+      "guide_effect": 1.0,
+      "prompt_only": 0.3875,
+      "prompt_only_held_out": 0.325,
+      "random": 0.7375,
+      "random_held_out": 0.675,
+      "ratchet": 0.84375,
+      "ratchet_held_out": 0.75,
+      "ratchet_minus_prompt_only": 0.45625,
+      "ratchet_vs_prompt_only_p": 2.441642201786159e-17,
+      "seed": 4
+    },
+    {
+      "fixed": 0.45,
+      "fixed_held_out": 0.45,
+      "guide_effect": 0.6,
+      "prompt_only": 0.45,
+      "prompt_only_held_out": 0.45,
+      "random": 0.69375,
+      "random_held_out": 0.65,
+      "ratchet": 0.88125,
+      "ratchet_held_out": 0.7,
+      "ratchet_minus_prompt_only": 0.43125,
+      "ratchet_vs_prompt_only_p": 2.91096598559025e-16,
+      "seed": 0
+    },
+    {
+      "fixed": 0.4,
+      "fixed_held_out": 0.375,
+      "guide_effect": 0.6,
+      "prompt_only": 0.4,
+      "prompt_only_held_out": 0.375,
+      "random": 0.8,
+      "random_held_out": 0.775,
+      "ratchet": 0.85625,
+      "ratchet_held_out": 0.9,
+      "ratchet_minus_prompt_only": 0.45625,
+      "ratchet_vs_prompt_only_p": 1.4495364161868997e-18,
+      "seed": 1
+    },
+    {
+      "fixed": 0.40625,
+      "fixed_held_out": 0.425,
+      "guide_effect": 0.6,
+      "prompt_only": 0.40625,
+      "prompt_only_held_out": 0.425,
+      "random": 0.5125,
+      "random_held_out": 0.5,
+      "ratchet": 0.925,
+      "ratchet_held_out": 0.9,
+      "ratchet_minus_prompt_only": 0.51875,
+      "ratchet_vs_prompt_only_p": 1.1112241759254372e-20,
+      "seed": 2
+    },
+    {
+      "fixed": 0.3625,
+      "fixed_held_out": 0.375,
+      "guide_effect": 0.6,
+      "prompt_only": 0.3625,
+      "prompt_only_held_out": 0.375,
+      "random": 0.85625,
+      "random_held_out": 0.875,
+      "ratchet": 0.81875,
+      "ratchet_held_out": 0.75,
+      "ratchet_minus_prompt_only": 0.45625,
+      "ratchet_vs_prompt_only_p": 7.088912032076993e-16,
+      "seed": 3
+    },
+    {
+      "fixed": 0.3875,
+      "fixed_held_out": 0.325,
+      "guide_effect": 0.6,
+      "prompt_only": 0.3875,
+      "prompt_only_held_out": 0.325,
+      "random": 0.7375,
+      "random_held_out": 0.675,
+      "ratchet": 0.84375,
+      "ratchet_held_out": 0.75,
+      "ratchet_minus_prompt_only": 0.45625,
+      "ratchet_vs_prompt_only_p": 2.441642201786159e-17,
+      "seed": 4
+    },
+    {
+      "fixed": 0.45,
+      "fixed_held_out": 0.45,
+      "guide_effect": 0.2,
+      "prompt_only": 0.45,
+      "prompt_only_held_out": 0.45,
+      "random": 0.69375,
+      "random_held_out": 0.65,
+      "ratchet": 0.88125,
+      "ratchet_held_out": 0.7,
+      "ratchet_minus_prompt_only": 0.43125,
+      "ratchet_vs_prompt_only_p": 2.91096598559025e-16,
+      "seed": 0
+    },
+    {
+      "fixed": 0.4,
+      "fixed_held_out": 0.375,
+      "guide_effect": 0.2,
+      "prompt_only": 0.475,
+      "prompt_only_held_out": 0.5,
+      "random": 0.8,
+      "random_held_out": 0.775,
+      "ratchet": 0.85625,
+      "ratchet_held_out": 0.9,
+      "ratchet_minus_prompt_only": 0.38125,
+      "ratchet_vs_prompt_only_p": 3.918121146030225e-12,
+      "seed": 1
+    },
+    {
+      "fixed": 0.40625,
+      "fixed_held_out": 0.425,
+      "guide_effect": 0.2,
+      "prompt_only": 0.6125,
+      "prompt_only_held_out": 0.675,
+      "random": 0.5125,
+      "random_held_out": 0.5,
+      "ratchet": 0.925,
+      "ratchet_held_out": 0.9,
+      "ratchet_minus_prompt_only": 0.3125,
+      "ratchet_vs_prompt_only_p": 1.7951476752580547e-10,
+      "seed": 2
+    },
+    {
+      "fixed": 0.3625,
+      "fixed_held_out": 0.375,
+      "guide_effect": 0.2,
+      "prompt_only": 0.5375,
+      "prompt_only_held_out": 0.65,
+      "random": 0.85625,
+      "random_held_out": 0.875,
+      "ratchet": 0.81875,
+      "ratchet_held_out": 0.75,
+      "ratchet_minus_prompt_only": 0.28125,
+      "ratchet_vs_prompt_only_p": 1.0136448982171495e-07,
+      "seed": 3
+    },
+    {
+      "fixed": 0.3875,
+      "fixed_held_out": 0.325,
+      "guide_effect": 0.2,
+      "prompt_only": 0.55625,
+      "prompt_only_held_out": 0.55,
+      "random": 0.7375,
+      "random_held_out": 0.675,
+      "ratchet": 0.84375,
+      "ratchet_held_out": 0.75,
+      "ratchet_minus_prompt_only": 0.2875,
+      "ratchet_vs_prompt_only_p": 1.5129781377543388e-07,
+      "seed": 4
+    },
+    {
+      "fixed": 0.45,
+      "fixed_held_out": 0.45,
+      "guide_effect": 0.0,
+      "prompt_only": 0.45,
+      "prompt_only_held_out": 0.45,
+      "random": 0.69375,
+      "random_held_out": 0.65,
+      "ratchet": 0.88125,
+      "ratchet_held_out": 0.7,
+      "ratchet_minus_prompt_only": 0.43125,
+      "ratchet_vs_prompt_only_p": 2.91096598559025e-16,
+      "seed": 0
+    },
+    {
+      "fixed": 0.4,
+      "fixed_held_out": 0.375,
+      "guide_effect": 0.0,
+      "prompt_only": 0.50625,
+      "prompt_only_held_out": 0.55,
+      "random": 0.8,
+      "random_held_out": 0.775,
+      "ratchet": 0.85625,
+      "ratchet_held_out": 0.9,
+      "ratchet_minus_prompt_only": 0.35,
+      "ratchet_vs_prompt_only_p": 6.11831045524052e-11,
+      "seed": 1
+    },
+    {
+      "fixed": 0.40625,
+      "fixed_held_out": 0.425,
+      "guide_effect": 0.0,
+      "prompt_only": 0.70625,
+      "prompt_only_held_out": 0.75,
+      "random": 0.5125,
+      "random_held_out": 0.5,
+      "ratchet": 0.925,
+      "ratchet_held_out": 0.9,
+      "ratchet_minus_prompt_only": 0.21875,
+      "ratchet_vs_prompt_only_p": 1.220851017613711e-06,
+      "seed": 2
+    },
+    {
+      "fixed": 0.3625,
+      "fixed_held_out": 0.375,
+      "guide_effect": 0.0,
+      "prompt_only": 0.55625,
+      "prompt_only_held_out": 0.65,
+      "random": 0.85625,
+      "random_held_out": 0.875,
+      "ratchet": 0.81875,
+      "ratchet_held_out": 0.75,
+      "ratchet_minus_prompt_only": 0.2625,
+      "ratchet_vs_prompt_only_p": 9.674891137601897e-07,
+      "seed": 3
+    },
+    {
+      "fixed": 0.3875,
+      "fixed_held_out": 0.325,
+      "guide_effect": 0.0,
+      "prompt_only": 0.5,
+      "prompt_only_held_out": 0.55,
+      "random": 0.7375,
+      "random_held_out": 0.675,
+      "ratchet": 0.84375,
+      "ratchet_held_out": 0.75,
+      "ratchet_minus_prompt_only": 0.34375,
+      "ratchet_vs_prompt_only_p": 2.048841172810755e-10,
+      "seed": 4
+    }
+  ],
+  "summary": {
+    "1.0": {
+      "fixed": {
+        "max": 0.45,
+        "mean": 0.40125,
+        "min": 0.3625,
+        "sd": 0.03199120973017432
+      },
+      "prompt_only": {
+        "max": 0.45,
+        "mean": 0.40125,
+        "min": 0.3625,
+        "sd": 0.03199120973017432
+      },
+      "random": {
+        "max": 0.85625,
+        "mean": 0.72,
+        "min": 0.5125,
+        "sd": 0.13135412536346167
+      },
+      "ratchet": {
+        "max": 0.925,
+        "mean": 0.865,
+        "min": 0.81875,
+        "sd": 0.040408074688111556
+      },
+      "ratchet_beats_prompt_only_p_lt_0.05": 5,
+      "seeds": 5
+    },
+    "0.6": {
+      "fixed": {
+        "max": 0.45,
+        "mean": 0.40125,
+        "min": 0.3625,
+        "sd": 0.03199120973017432
+      },
+      "prompt_only": {
+        "max": 0.45,
+        "mean": 0.40125,
+        "min": 0.3625,
+        "sd": 0.03199120973017432
+      },
+      "random": {
+        "max": 0.85625,
+        "mean": 0.72,
+        "min": 0.5125,
+        "sd": 0.13135412536346167
+      },
+      "ratchet": {
+        "max": 0.925,
+        "mean": 0.865,
+        "min": 0.81875,
+        "sd": 0.040408074688111556
+      },
+      "ratchet_beats_prompt_only_p_lt_0.05": 5,
+      "seeds": 5
+    },
+    "0.2": {
+      "fixed": {
+        "max": 0.45,
+        "mean": 0.40125,
+        "min": 0.3625,
+        "sd": 0.03199120973017432
+      },
+      "prompt_only": {
+        "max": 0.6125,
+        "mean": 0.52625,
+        "min": 0.45,
+        "sd": 0.06501201811972923
+      },
+      "random": {
+        "max": 0.85625,
+        "mean": 0.72,
+        "min": 0.5125,
+        "sd": 0.13135412536346167
+      },
+      "ratchet": {
+        "max": 0.925,
+        "mean": 0.865,
+        "min": 0.81875,
+        "sd": 0.040408074688111556
+      },
+      "ratchet_beats_prompt_only_p_lt_0.05": 5,
+      "seeds": 5
+    },
+    "0.0": {
+      "fixed": {
+        "max": 0.45,
+        "mean": 0.40125,
+        "min": 0.3625,
+        "sd": 0.03199120973017432
+      },
+      "prompt_only": {
+        "max": 0.70625,
+        "mean": 0.54375,
+        "min": 0.45,
+        "sd": 0.09832582951595173
+      },
+      "random": {
+        "max": 0.85625,
+        "mean": 0.72,
+        "min": 0.5125,
+        "sd": 0.13135412536346167
+      },
+      "ratchet": {
+        "max": 0.925,
+        "mean": 0.865,
+        "min": 0.81875,
+        "sd": 0.040408074688111556
+      },
+      "ratchet_beats_prompt_only_p_lt_0.05": 5,
+      "seeds": 5
+    }
+  }
+}

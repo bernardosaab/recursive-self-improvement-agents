@@ -11,6 +11,7 @@ from typing import Any
 from .models import CHECKPOINT, CallStore, ChunkDeadline
 from .registry import Registry
 from .report import write_markdown
+from .robustness import confirm, render_confirm, render_sweep, sweep
 from .stats import mcnemar_sample_size
 from .study import ARMS, Study, StudyConfig
 
@@ -77,6 +78,21 @@ def main(argv: list[str] | None = None) -> int:
     rollback.add_argument("--reviewer", required=True)
     rollback.add_argument("--reason", required=True)
 
+    sw = sub.add_parser("sweep", help="offline sensitivity sweep over seeds and guide strength")
+    sw.add_argument("--seeds", default="0,1,2,3,4")
+    sw.add_argument("--guide-effects", default="1.0,0.6,0.2")
+    sw.add_argument("--arms", default="fixed,ratchet,prompt_only,random")
+    sw.add_argument("--out", type=Path, default=Path("results/v3-sweep"))
+
+    cf = sub.add_parser("confirm", help="evaluate frozen harnesses from a report on fresh tasks")
+    cf.add_argument("--report", type=Path, required=True)
+    cf.add_argument("--arms", default="fixed,ratchet")
+    cf.add_argument("--n-final", type=int, default=40)
+    cf.add_argument("--task-seed-offset", type=int, default=100)
+    cf.add_argument("--out", type=Path, default=Path("results/v3-confirm"))
+    cf.add_argument("--cache", type=Path)
+    cf.add_argument("--max-seconds", type=float)
+
     power = sub.add_parser("power", help="paired sample size for a target accuracy gain")
     power.add_argument("--delta", type=float, default=0.15)
     power.add_argument("--discordance", type=float, default=0.30)
@@ -140,6 +156,25 @@ def main(argv: list[str] | None = None) -> int:
         registry.clock = max((e["tx_time"] for e in registry.events()), default=0)
         registry.rollback(args.arm, args.to, args.reviewer, args.reason)
         _write(None, {"active": registry.active(args.arm), "history": registry.history(args.arm)})
+    elif args.command == "sweep":
+        result = sweep(
+            [int(x) for x in args.seeds.split(",")],
+            [float(x) for x in args.guide_effects.split(",")],
+            tuple(args.arms.split(",")),
+        )
+        _write(args.out / "sweep.json", result)
+        (args.out / "summary.md").write_text(render_sweep(result), encoding="utf-8")
+        print(render_sweep(result))
+    elif args.command == "confirm":
+        CHECKPOINT.reset(CallStore(args.cache) if args.cache else None, args.max_seconds)
+        try:
+            result = confirm(args.report, args.arms.split(","), args.n_final, args.task_seed_offset)
+        except ChunkDeadline:
+            print(f"checkpoint: {CHECKPOINT.store.count()} calls stored; re-run to resume")
+            return 3
+        _write(args.out / "confirm.json", result)
+        (args.out / "summary.md").write_text(render_confirm(result), encoding="utf-8")
+        print(render_confirm(result))
     elif args.command == "power":
         print(mcnemar_sample_size(args.delta, args.discordance))
     return 0

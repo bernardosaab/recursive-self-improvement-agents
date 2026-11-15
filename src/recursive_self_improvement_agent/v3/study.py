@@ -123,6 +123,9 @@ class StudyConfig:
     approval: str = "standing"  # standing | pending
     reviewer: str = "local-reviewer"
     seed: int = 0
+    task_seed_offset: int = 0  # shifts every split seed: fresh task instances
+    guide_effect: float = 0.6  # simulated backend only: strength of advisory guides
+    audits: bool = True
 
 
 @dataclass
@@ -155,7 +158,7 @@ def _hash(value: Any) -> str:
 
 def make_backend(config: StudyConfig) -> Backend:
     if config.provider == "simulated":
-        return SimulatedBackend(seed=config.seed)
+        return SimulatedBackend(seed=config.seed, guide_effect=config.guide_effect)
     if config.provider == "ollama":
         backend = OllamaBackend(small=config.small_model, large=config.large_model)
         if not backend.available():
@@ -276,10 +279,13 @@ class Study:
         self.config = config
         self.registry = registry or Registry()
         self.backend = make_backend(config)
-        self.dev = list(build_split("development", config.n_dev))
-        self.selection = list(build_split("selection", config.n_selection))
+        self.dev = self._split("development", config.n_dev)
+        self.selection = self._split("selection", config.n_selection)
         self.safety = seed_safety_cases()
         self.arm_results: dict[str, dict[str, Any]] = {}
+
+    def _split(self, name: str, n: int) -> list[Case]:
+        return list(build_split(name, n, seed=SPLIT_SEEDS[name] + self.config.task_seed_offset))
 
     # -- proposers -----------------------------------------------------------------
     def _proposer(self, arm: str) -> Proposer | None:
@@ -825,7 +831,7 @@ class Study:
 
     # -- sealed final ----------------------------------------------------------------
     def final(self, harnesses: dict[str, HarnessConfig]) -> dict[str, Any]:
-        cases = list(build_split("final", self.config.n_final))
+        cases = self._split("final", self.config.n_final)
         results: dict[str, Any] = {}
         outcomes: dict[str, list[Outcome]] = {}
         traces_by_arm: dict[str, list[TaskTrace]] = {}
@@ -893,7 +899,7 @@ class Study:
         ]
         if not promotions:
             return {"arm": arm, "promotions": 0, "edits": []}
-        cases = list(build_split("final", self.config.n_final))
+        cases = self._split("final", self.config.n_final)
 
         def build(indices: list[int]) -> HarnessConfig | None:
             data = BASELINE_HARNESS.model_dump(mode="python")
@@ -946,7 +952,7 @@ class Study:
 
     def factorial(self, harness: HarnessConfig) -> dict[str, Any]:
         """Separate harness effects from model-tier effects on the final split."""
-        cases = list(build_split("final", self.config.n_final))
+        cases = self._split("final", self.config.n_final)
         variants = {
             "small_only": RoutingPolicy(default_tier=Tier.SMALL),
             "large_only": RoutingPolicy(default_tier=Tier.LARGE),
@@ -1015,15 +1021,21 @@ class Study:
                 arm: {k: v for k, v in r.items() if not k.startswith("_")}
                 for arm, r in self.arm_results.items()
             },
-            "honeypots": self.honeypots(audit_harness, audit_suite),
-            "chaos_write_gate_offline": self.chaos(audit_harness),
             "final": final,
-            "factorial": self.factorial(audit_harness),
-            "attribution": {
-                arm: self.attribution(arm)
-                for arm in ("ratchet", "ratchet_no_compiler")
-                if arm in self.arm_results
-            },
+            **(
+                {
+                    "honeypots": self.honeypots(audit_harness, audit_suite),
+                    "chaos_write_gate_offline": self.chaos(audit_harness),
+                    "factorial": self.factorial(audit_harness),
+                    "attribution": {
+                        arm: self.attribution(arm)
+                        for arm in ("ratchet", "ratchet_no_compiler")
+                        if arm in self.arm_results
+                    },
+                }
+                if cfg.audits
+                else {}
+            ),
             "registry_chain_valid": self.registry.verify_chain(),
             "wall_s": time.perf_counter() - started,
         }

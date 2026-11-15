@@ -168,6 +168,29 @@ Chaos test (write gate offline): 8 write attempts, 8 failed closed, 0 executed. 
 
 Registry hash chain valid: True.
 
+### Robustness checks
+
+**Replication on fresh real-model tasks.** The frozen harnesses from the run above (hashes verified) were evaluated once more on 160 new final-split instances (seed 5407; 40 per family including the held-out family) that were never used in any earlier step. Command: `rasis-v3 confirm`. Report: [`evidence/v3-ollama-confirm/`](evidence/v3-ollama-confirm/summary.md).
+
+| Harness | Accuracy (95% CI) | Held-out family | vs fixed W/L/T | Δ vs fixed (95% CI) | McNemar p | Held-out Δ (p) |
+|---|---:|---:|---|---:|---:|---:|
+| fixed | 2.5% (1.0–6.3) | 0.0% | – | – | – | – |
+| ratchet | 57.5% (49.8–64.9) | 27.5% | 88/0/72 | +0.550 (+0.475, +0.625) | 6.5e-27 | +0.275 (0.001) |
+| ratchet harness, small model only | 50.6% (43.0–58.3) | 12.5% | 78/1/81 | +0.481 (+0.400, +0.556) | 2.7e-22 | +0.125 (0.063) |
+
+The headline effect replicates on twice the sample. Forcing the final harness onto the small model keeps most of the gain, so the improvement comes from the harness structure, not from the proposer's choice to route to the large model. Transfer to the held-out family is weaker on the small model and not significant there.
+
+**Offline sensitivity to the simulator's assumption.** The simulator assumes advisory guides only partly reduce a failure mode, which could make "structural beats prompt-only" circular. The sweep re-runs the whole offline study over 5 task seeds (every split seed shifted, simulator reseeded) and over guide strengths from "guides do nothing" (1.0) to "a guide fully removes the failure mode it targets" (0.0). Command: `rasis-v3 sweep`. Report: [`evidence/v3-sweep/`](evidence/v3-sweep/summary.md).
+
+| Guide effect | fixed | ratchet | prompt_only | random | Ratchet > prompt-only (p<0.05) |
+|---:|---:|---:|---:|---:|---:|
+| 1.0 | 40.1% [36–45] | 86.5% [82–92] | 40.1% [36–45] | 72.0% [51–86] | 5/5 |
+| 0.6 (default) | 40.1% [36–45] | 86.5% [82–92] | 40.1% [36–45] | 72.0% [51–86] | 5/5 |
+| 0.2 | 40.1% [36–45] | 86.5% [82–92] | 52.6% [45–61] | 72.0% [51–86] | 5/5 |
+| 0.0 | 40.1% [36–45] | 86.5% [82–92] | 54.4% [45–71] | 72.0% [51–86] | 5/5 |
+
+The table shows mean [min–max] sealed-final accuracy across seeds. The ratchet's advantage over prompt-only holds in all 20 seed × assumption runs, even when guides are assumed perfect. The reason is structural, not assumed: guidance cannot add tool retries, compiled known paths, citation or conflict sensors, or quarantine. Several failure classes are therefore out of reach of prompt edits, whatever their strength.
+
 ### Offline simulated backend
 
 The offline backend is a seeded stochastic **stand-in, not a language model**. Its per-hazard error rates are declared assumptions in `SIMULATED_PROFILES`, including the assumption that advisory guides only partly reduce a failure mode. **The offline comparison therefore demonstrates the loop's mechanics and statistics. It is not evidence for the hypothesis that structural harness edits beat prompt edits.** That hypothesis is tested only against real models (above). Defaults: 30 development, 80 selection and 40 final tasks per family; 4 cycles; 2 proposals per cycle; standing approval.
@@ -325,6 +348,11 @@ rasis-v3 run --provider ollama --proposer ollama --arms fixed,ratchet,ratchet_no
   --db data\v3-ollama.sqlite3 --out results\v3-ollama `
   --cache data\v3-ollama-cache.sqlite3 --max-seconds 360
 
+# Robustness: offline seed x assumption sweep (~6 min); real-model replication on fresh tasks
+rasis-v3 sweep --seeds 0,1,2,3,4 --guide-effects 1.0,0.6,0.2,0.0 --out results\v3-sweep
+rasis-v3 confirm --report evidence\v3-ollama\report.json --arms fixed,ratchet --n-final 40 `
+  --task-seed-offset 100 --out results\v3-confirm --cache data\v3-confirm-cache.sqlite3 --max-seconds 360
+
 # Inspect lineage
 rasis-v3 history --db data\v3-sim.sqlite3 --arm ratchet
 rasis-v3 pack --db data\v3-sim.sqlite3 --arm ratchet --review-seq <seq>
@@ -350,7 +378,7 @@ All tuned arms get the same number of cycles, proposals per cycle and selection 
 
 - **Synthetic tasks, coupled generator.** The labels, the known-path compiler and the simulated model all follow the documented resolution rule, so compiled accuracy on covered tasks holds by construction. What is measured is coverage, skip behaviour and cost. The held-out family and final-only drift are genuine distribution shifts *within* this generator, not evidence of real-world transfer.
 - **Attribution is causal only for this task distribution and harness lineage.** Leave-one-out and add-one effects are interventions on fixed tasks. Removing one edit's operations can interact with later edits to the same field, and such cases are marked non-separable.
-- **The simulated backend encodes its assumptions** (see above), including the simulated checker's detection and false-alarm rates. Only the Ollama results speak to model behaviour, and they come from small local models and small samples.
+- **The simulated backend encodes its assumptions** (see above), including the simulated checker's detection and false-alarm rates. The sensitivity sweep shows the main offline conclusion does not depend on the guide-strength assumption, but the other error rates were not swept. Only the Ollama results speak to model behaviour. They come from two small local models: one improvement run (one seed) plus one replication of the frozen harnesses on fresh tasks. The improvement loop itself was not repeated across seeds with real models.
 - **Selection data is reused across cycles.** Error spending controls the false-promotion rate for the *selection* tests. It does not remove adaptivity from proposals built on development diagnostics. The final split is evaluated once, after every arm is frozen, but its generator and seed are public: "sealed" is procedural, not cryptographic.
 - **Heuristic content boundary.** The free-text guidance filter is a regex for this study, not a general prompt-injection defence.
 - **Cost is a proxy.** USD figures apply illustrative hosted-equivalent prices (`PRICE_ASSUMPTIONS`) to measured token counts. Local inference had no monetary cost; Ollama wall-clock latency is recorded per call.

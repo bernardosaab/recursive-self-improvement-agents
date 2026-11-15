@@ -507,3 +507,38 @@ def test_guides_cite_versioned_wiki_pages_and_archives_cannot_bind():
             BASELINE_HARNESS,
             _proposal(BASELINE_HARNESS, [{"op": "add_guide", "guide": "record-validity@2.0"}]),
         )
+
+
+def test_sweep_and_confirm_run_on_small_configs(tmp_path):
+    from recursive_self_improvement_agent.v3.robustness import (
+        confirm,
+        render_confirm,
+        render_sweep,
+        sweep,
+    )
+
+    base = StudyConfig(n_dev=9, n_selection=15, n_final=6, cycles=1, min_pairs=15)
+    result = sweep([0], [1.0, 0.0], ("fixed", "ratchet", "prompt_only"), base)
+    assert set(result["summary"]) == {"1.0", "0.0"} and "Guide effect" in render_sweep(result)
+
+    config = StudyConfig(
+        n_dev=9,
+        n_selection=15,
+        n_final=6,
+        cycles=1,
+        arms=("fixed", "ratchet"),
+        approval="standing",
+        min_pairs=15,
+    )
+    report = Study(config, Registry()).run()
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(report, default=str), encoding="utf-8")
+    confirmed = confirm(path, ["fixed", "ratchet"], n_final=5, task_seed_offset=100)
+    assert confirmed["final_seed"] == 5407 and "ratchet@small_only" in confirmed["arms"]
+    assert "vs_fixed" in confirmed["arms"]["ratchet"] and "Confirmation" in render_confirm(
+        confirmed
+    )
+    report["arms"]["ratchet"]["final_hash"] = "0" * 64
+    path.write_text(json.dumps(report, default=str), encoding="utf-8")
+    with pytest.raises(ValueError):
+        confirm(path, ["ratchet"], n_final=5, task_seed_offset=100)

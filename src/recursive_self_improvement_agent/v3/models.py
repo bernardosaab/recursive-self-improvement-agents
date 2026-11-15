@@ -273,18 +273,20 @@ class SimulatedBackend:
 
     name = "simulated"
 
-    def __init__(self, seed: int = 0) -> None:
+    def __init__(self, seed: int = 0, guide_effect: float = GUIDE_EFFECT) -> None:
         self.seed = seed
+        self.guide_effect = guide_effect
 
     def model_id(self, tier: Tier) -> str:
-        return f"simulated-{tier.value}-v3"
+        suffix = "" if self.guide_effect == GUIDE_EFFECT else f"-guide{self.guide_effect:g}"
+        return f"simulated-{tier.value}-v3{suffix}"
 
     def generate(self, request: ModelRequest) -> ModelResult:
         digest = hashlib.sha256(
             f"{self.seed}|{request.tier}|{request.system}|{request.user}|{request.attempt}".encode()
         ).digest()
         rng = random.Random(int.from_bytes(digest[:8], "big"))
-        output = _simulate(rng, SIMULATED_PROFILES[request.tier], request.view)
+        output = _simulate(rng, SIMULATED_PROFILES[request.tier], request.view, self.guide_effect)
         text = json.dumps(output, sort_keys=True)
         return ModelResult(
             model_id=self.model_id(request.tier),
@@ -314,7 +316,12 @@ def _simulate_checker(
     }
 
 
-def _simulate(rng: random.Random, p: dict[str, float], view: dict[str, Any]) -> dict[str, Any]:
+def _simulate(
+    rng: random.Random,
+    p: dict[str, float],
+    view: dict[str, Any],
+    guide_effect: float = GUIDE_EFFECT,
+) -> dict[str, Any]:
     if view.get("role") == "checker":
         return _simulate_checker(rng, p, view)
     claim = Claim.model_validate(view["claim"])
@@ -323,7 +330,7 @@ def _simulate(rng: random.Random, p: dict[str, float], view: dict[str, Any]) -> 
     records = [Record.model_validate(r) for r in view["records"]]
 
     def g(guide: Guide) -> float:
-        return GUIDE_EFFECT if guide.value in guides else 1.0
+        return guide_effect if guide.value in guides else 1.0
 
     def decide(record: Record | None) -> tuple[str, list[str]]:
         if record is None:

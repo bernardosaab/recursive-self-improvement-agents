@@ -1,0 +1,321 @@
+{
+  "arms": {
+    "fixed": {
+      "accuracy_ci95": [
+        0.0,
+        0.0458197362645751
+      ],
+      "compiled_tasks": {
+        "tasks": 0
+      },
+      "gpu_power": {
+        "energy_wh": 0.5262333734968307,
+        "mean_watts": 44.1245,
+        "samples": 40,
+        "wh_per_verified_completion": null
+      },
+      "harness_hash": "484188d6cfc44f8e65c030098182024d07c6250ad219feff0e5eedf60d4257dd",
+      "held_out_family": {
+        "abstentions": 0,
+        "accuracy": 0.0,
+        "blocked_attempts": 20,
+        "compiled_tasks": 0,
+        "completion_rate_answerable": 0.0,
+        "correct": 0,
+        "cost_per_verified_completion": null,
+        "cost_usd": 0.0011683000000000002,
+        "executed_violations": 0,
+        "large_tier_calls": 0,
+        "model_calls": 20,
+        "tasks": 20,
+        "unsupported_claims": 20,
+        "verified_completions": 0,
+        "wrong_writes": 0
+      },
+      "model_answered_tasks": {
+        "abstentions": 0,
+        "accuracy": 0.0,
+        "blocked_attempts": 62,
+        "compiled_tasks": 0,
+        "completion_rate_answerable": 0.0,
+        "correct": 0,
+        "cost_per_verified_completion": null,
+        "cost_usd": 0.0052439,
+        "executed_violations": 0,
+        "large_tier_calls": 0,
+        "model_calls": 80,
+        "tasks": 80,
+        "unsupported_claims": 80,
+        "verified_completions": 0,
+        "wrong_writes": 12
+      },
+      "overall": {
+        "abstentions": 0,
+        "accuracy": 0.0,
+        "blocked_attempts": 62,
+        "compiled_tasks": 0,
+        "completion_rate_answerable": 0.0,
+        "correct": 0,
+        "cost_per_verified_completion": null,
+        "cost_usd": 0.0052439,
+        "executed_violations": 0,
+        "large_tier_calls": 0,
+        "model_calls": 80,
+        "tasks": 80,
+        "unsupported_claims": 80,
+        "verified_completions": 0,
+        "wrong_writes": 12
+      },
+      "seconds_per_verified_completion": null,
+      "wall_seconds": 42.933974200015655
+    },
+    "ratchet": {
+      "accuracy_ci95": [
+        0.515485228513904,
+        0.7230598374199522
+      ],
+      "compiled_tasks": {
+        "abstentions": 0,
+        "accuracy": 1.0,
+        "blocked_attempts": 0,
+        "compiled_tasks": 27,
+        "completion_rate_answerable": 1.0,
+        "correct": 27,
+        "cost_per_verified_completion": 0.0,
+        "cost_usd": 0.0,
+        "executed_violations": 0,
+        "large_tier_calls": 0,
+        "model_calls": 0,
+        "tasks": 27,
+        "unsupported_claims": 0,
+        "verified_completions": 27,
+        "wrong_writes": 0
+      },
+      "gpu_power": {
+        "energy_wh": 1.0975017380764513,
+        "mean_watts": 77.03428571428572,
+        "samples": 49,
+        "wh_per_verified_completion": 0.028881624686222403
+      },
+      "harness_hash": "1108a077f454aa57688c44f22f1b3b49970810ca487ffceb61d56575dcd1acf0",
+      "held_out_family": {
+        "abstentions": 3,
+        "accuracy": 0.4,
+        "blocked_attempts": 1,
+        "compiled_tasks": 0,
+        "completion_rate_answerable": 0.3125,
+        "correct": 8,
+        "cost_per_verified_completion": 0.0015137999999999998,
+        "cost_usd": 0.007568999999999999,
+        "executed_violations": 0,
+        "large_tier_calls": 20,
+        "model_calls": 20,
+        "tasks": 20,
+        "unsupported_claims": 11,
+        "verified_completions": 5,
+        "wrong_writes": 0
+      },
+      "held_out_vs_fixed": {
+        "accuracy_delta": 0.4,
+        "accuracy_delta_ci95": [
+          0.2,
+          0.6
+        ],
+        "losses": 0,
+        "mcnemar_exact_p": 0.0078125,
+        "pairs": 20,
+        "ties": 12,
+        "wins": 8
+      },
+      "model_answered_tasks": {
+        "abstentions": 12,
+        "accuracy": 0.4339622641509434,
+        "blocked_attempts": 2,
+        "compiled_tasks": 0,
+        "completion_rate_answerable": 0.34375,
+        "correct": 23,
+        "cost_per_verified_completion": 0.0019095818181818181,
+        "cost_usd": 0.0210054,
+        "executed_violations": 0,
+        "large_tier_calls": 53,
+        "model_calls": 53,
+        "tasks": 53,
+        "unsupported_claims": 27,
+        "verified_completions": 11,
+        "wrong_writes": 10
+      },
+      "overall": {
+        "abstentions": 12,
+        "accuracy": 0.625,
+        "blocked_attempts": 2,
+        "compiled_tasks": 27,
+        "completion_rate_answerable": 0.6440677966101694,
+        "correct": 50,
+        "cost_per_verified_completion": 0.0005527736842105263,
+        "cost_usd": 0.0210054,
+        "executed_violations": 0,
+        "large_tier_calls": 53,
+        "model_calls": 53,
+        "tasks": 80,
+        "unsupported_claims": 27,
+        "verified_completions": 38,
+        "wrong_writes": 10
+      },
+      "seconds_per_verified_completion": 1.3497087421051936,
+      "vs_fixed": {
+        "accuracy_delta": 0.625,
+        "accuracy_delta_ci95": [
+          0.5125,
+          0.725
+        ],
+        "losses": 0,
+        "mcnemar_exact_p": 1.7763568394002505e-15,
+        "pairs": 80,
+        "ties": 30,
+        "wins": 50
+      },
+      "wall_seconds": 51.28893219999736
+    },
+    "ratchet@small_only": {
+      "accuracy_ci95": [
+        0.38107693944368337,
+        0.5950685539629311
+      ],
+      "compiled_tasks": {
+        "abstentions": 0,
+        "accuracy": 1.0,
+        "blocked_attempts": 0,
+        "compiled_tasks": 27,
+        "completion_rate_answerable": 1.0,
+        "correct": 27,
+        "cost_per_verified_completion": 0.0,
+        "cost_usd": 0.0,
+        "executed_violations": 0,
+        "large_tier_calls": 0,
+        "model_calls": 0,
+        "tasks": 27,
+        "unsupported_claims": 0,
+        "verified_completions": 27,
+        "wrong_writes": 0
+      },
+      "gpu_power": {
+        "energy_wh": 0.5823372442156385,
+        "mean_watts": 74.75,
+        "samples": 27,
+        "wh_per_verified_completion": 0.021568046082060685
+      },
+      "harness_hash": "35b0d35beb41425503b4b3b6fadb73c0e1c56df40ce76fe56c36c62c62475b50",
+      "held_out_family": {
+        "abstentions": 3,
+        "accuracy": 0.15,
+        "blocked_attempts": 17,
+        "compiled_tasks": 0,
+        "completion_rate_answerable": 0.0,
+        "correct": 3,
+        "cost_per_verified_completion": null,
+        "cost_usd": 0.0023897,
+        "executed_violations": 0,
+        "large_tier_calls": 3,
+        "model_calls": 23,
+        "tasks": 20,
+        "unsupported_claims": 17,
+        "verified_completions": 0,
+        "wrong_writes": 0
+      },
+      "held_out_vs_fixed": {
+        "accuracy_delta": 0.15,
+        "accuracy_delta_ci95": [
+          0.0,
+          0.35
+        ],
+        "losses": 0,
+        "mcnemar_exact_p": 0.25,
+        "pairs": 20,
+        "ties": 17,
+        "wins": 3
+      },
+      "held_out_vs_ratchet": {
+        "accuracy_delta": -0.25,
+        "accuracy_delta_ci95": [
+          -0.45,
+          -0.1
+        ],
+        "losses": 5,
+        "mcnemar_exact_p": 0.0625,
+        "pairs": 20,
+        "ties": 15,
+        "wins": 0
+      },
+      "model_answered_tasks": {
+        "abstentions": 13,
+        "accuracy": 0.22641509433962265,
+        "blocked_attempts": 28,
+        "compiled_tasks": 0,
+        "completion_rate_answerable": 0.0,
+        "correct": 12,
+        "cost_per_verified_completion": null,
+        "cost_usd": 0.0088181,
+        "executed_violations": 0,
+        "large_tier_calls": 12,
+        "model_calls": 65,
+        "tasks": 53,
+        "unsupported_claims": 40,
+        "verified_completions": 0,
+        "wrong_writes": 10
+      },
+      "overall": {
+        "abstentions": 13,
+        "accuracy": 0.4875,
+        "blocked_attempts": 28,
+        "compiled_tasks": 27,
+        "completion_rate_answerable": 0.4576271186440678,
+        "correct": 39,
+        "cost_per_verified_completion": 0.0003265962962962963,
+        "cost_usd": 0.0088181,
+        "executed_violations": 0,
+        "large_tier_calls": 12,
+        "model_calls": 65,
+        "tasks": 80,
+        "unsupported_claims": 40,
+        "verified_completions": 27,
+        "wrong_writes": 10
+      },
+      "seconds_per_verified_completion": 1.038728640741384,
+      "vs_fixed": {
+        "accuracy_delta": 0.4875,
+        "accuracy_delta_ci95": [
+          0.375,
+          0.6
+        ],
+        "losses": 0,
+        "mcnemar_exact_p": 3.637978807091713e-12,
+        "pairs": 80,
+        "ties": 41,
+        "wins": 39
+      },
+      "vs_ratchet": {
+        "accuracy_delta": -0.1375,
+        "accuracy_delta_ci95": [
+          -0.2125,
+          -0.0625
+        ],
+        "losses": 11,
+        "mcnemar_exact_p": 0.0009765625,
+        "pairs": 80,
+        "ties": 69,
+        "wins": 0
+      },
+      "wall_seconds": 28.04567330001737
+    }
+  },
+  "backend": {
+    "large": "ollama/qwen2.5:7b",
+    "name": "ollama",
+    "small": "ollama/qwen2.5:0.5b"
+  },
+  "final_seed": 751886,
+  "n_final_per_family": 20,
+  "source_report": "evidence/v3-ollama/report.json",
+  "task_seed_offset": 746579,
+  "tasks": 80
+}

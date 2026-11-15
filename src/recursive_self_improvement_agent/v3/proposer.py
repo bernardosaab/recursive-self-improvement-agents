@@ -409,8 +409,10 @@ class OllamaProposer:
         backend: OllamaBackend,
         name: str = "harness_ratchet_ollama",
         allowed_ops: frozenset[str] = ALL_OPS,
+        model: str | None = None,
     ) -> None:
         self.backend = backend
+        self.model = model
         self.name = name
         self.allowed_ops = allowed_ops
         self.usage = ProposerUsage()
@@ -449,7 +451,7 @@ class OllamaProposer:
         for attempt in range(k):
             started = time.perf_counter()
             seed = attempt + 100 * cycle
-            model = self.backend.models[Tier.LARGE]
+            model = self.model or self.backend.models[Tier.LARGE]
             payload = memo_call(
                 self.namespace,
                 [model, OLLAMA_SYSTEM, user, seed, schema],

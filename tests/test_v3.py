@@ -542,3 +542,73 @@ def test_sweep_and_confirm_run_on_small_configs(tmp_path):
     path.write_text(json.dumps(report, default=str), encoding="utf-8")
     with pytest.raises(ValueError):
         confirm(path, ["ratchet"], n_final=5, task_seed_offset=100)
+
+
+def test_confirm_variants_report_breakdown_and_vs_ratchet(tmp_path):
+    from recursive_self_improvement_agent.v3.robustness import confirm, render_confirm
+
+    config = StudyConfig(
+        n_dev=9, n_selection=15, n_final=6, cycles=1, arms=("fixed", "ratchet"), min_pairs=15
+    )
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(Study(config, Registry()).run(), default=str), encoding="utf-8")
+    result = confirm(
+        path,
+        ["fixed", "ratchet"],
+        n_final=4,
+        task_seed_offset=100,
+        variants=("small_only", "checker_on_hazard"),
+    )
+    checker = result["arms"]["ratchet@checker_on_hazard"]
+    assert "vs_ratchet" in checker and "vs_fixed" in checker
+    assert "vs_ratchet" not in result["arms"]["ratchet"]
+    total = checker["compiled_tasks"].get("tasks", 0) + checker["model_answered_tasks"]["tasks"]
+    assert total == result["tasks"] and checker["wall_seconds"] >= 0
+    assert "Variants vs the frozen ratchet harness" in render_confirm(result)
+
+
+def test_error_scale_changes_simulator_and_sweep_keys():
+    from recursive_self_improvement_agent.v3.harness import Tier
+    from recursive_self_improvement_agent.v3.models import SimulatedBackend
+    from recursive_self_improvement_agent.v3.robustness import render_sweep, sweep
+
+    assert SimulatedBackend(error_scale=1.5).model_id(Tier.SMALL).endswith("-err1.5")
+    scaled = SimulatedBackend(error_scale=2.0)._profile(Tier.SMALL)
+    assert all(v <= 1.0 for v in scaled.values())
+    assert scaled["check_detect"] == SimulatedBackend()._profile(Tier.SMALL)["check_detect"]
+    base = StudyConfig(n_dev=9, n_selection=15, n_final=6, cycles=1, min_pairs=15)
+    result = sweep([0], [0.6], ("fixed", "ratchet", "prompt_only"), base, error_scales=[0.5, 1.5])
+    assert set(result["summary"]) == {"0.6|0.5", "0.6|1.5"}
+    assert "Error scale" in render_sweep(result)
+
+
+def test_redteam_corpus_catches_benchmark_injection_and_reports_misses():
+    from recursive_self_improvement_agent.v3.redteam import evaluate, render
+
+    result = evaluate()
+    notes = result["note_instruction_detector"]
+    assert notes["by_category"]["benchmark"] == {"attacks": 1, "caught": 1}
+    assert result["guidance_filter"]["by_category"]["direct"]["caught"] == 7
+    assert 0 < notes["recall"] < 1 and "Missed:" in render(result)
+
+
+def test_reprice_and_commitment(tmp_path):
+    from recursive_self_improvement_agent.v3.robustness import (
+        commitment_digest,
+        render_reprice,
+        reprice,
+        verify_commitment,
+    )
+
+    config = StudyConfig(
+        n_dev=9, n_selection=15, n_final=6, cycles=1, arms=("fixed", "ratchet"), min_pairs=15
+    )
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(Study(config, Registry()).run(), default=str), encoding="utf-8")
+    result = reprice(path)
+    assert set(result["arms"]) == {"fixed", "ratchet"} and "ratchet ÷ fixed" in render_reprice(
+        result
+    )
+    commit = tmp_path / "commitment.json"
+    commit.write_text(json.dumps({"commitment": commitment_digest(123, "abc")}), encoding="utf-8")
+    assert verify_commitment(commit, 123, "abc") and not verify_commitment(commit, 124, "abc")

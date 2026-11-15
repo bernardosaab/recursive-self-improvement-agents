@@ -9,9 +9,19 @@ from pathlib import Path
 from typing import Any
 
 from .models import CHECKPOINT, CallStore, ChunkDeadline
+from .redteam import evaluate as redteam_evaluate
+from .redteam import render as redteam_render
 from .registry import Registry
 from .report import write_markdown
-from .robustness import confirm, render_confirm, render_sweep, sweep
+from .robustness import (
+    confirm,
+    render_confirm,
+    render_reprice,
+    render_sweep,
+    reprice,
+    sweep,
+    verify_commitment,
+)
 from .stats import mcnemar_sample_size
 from .study import ARMS, Study, StudyConfig
 
@@ -43,6 +53,8 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--approval", choices=["standing", "pending"], default="pending")
     run.add_argument("--reviewer", default="local-reviewer")
     run.add_argument("--seed", type=int, default=0)
+    run.add_argument("--task-seed-offset", type=int, default=0)
+    run.add_argument("--proposer-model", help="Ollama proposer model (default: large tier)")
     run.add_argument("--db", type=Path, default=Path("data/v3-registry.sqlite3"))
     run.add_argument("--out", type=Path, default=Path("results/v3"))
     run.add_argument(
@@ -82,6 +94,7 @@ def main(argv: list[str] | None = None) -> int:
     sw.add_argument("--seeds", default="0,1,2,3,4")
     sw.add_argument("--guide-effects", default="1.0,0.6,0.2")
     sw.add_argument("--arms", default="fixed,ratchet,prompt_only,random")
+    sw.add_argument("--error-scales", default="1.0", help="multipliers on simulated error rates")
     sw.add_argument("--out", type=Path, default=Path("results/v3-sweep"))
 
     cf = sub.add_parser("confirm", help="evaluate frozen harnesses from a report on fresh tasks")
@@ -92,6 +105,22 @@ def main(argv: list[str] | None = None) -> int:
     cf.add_argument("--out", type=Path, default=Path("results/v3-confirm"))
     cf.add_argument("--cache", type=Path)
     cf.add_argument("--max-seconds", type=float)
+    cf.add_argument("--small-model")
+    cf.add_argument("--large-model")
+    cf.add_argument("--variants", default="small_only")
+    cf.add_argument("--power", action="store_true", help="sample GPU power with nvidia-smi")
+
+    rp = sub.add_parser("reprice", help="cost per verified completion under several price sheets")
+    rp.add_argument("--report", type=Path, required=True)
+    rp.add_argument("--out", type=Path, default=Path("results/v3-reprice"))
+
+    rt = sub.add_parser("redteam", help="measured catch rate of the heuristic text boundaries")
+    rt.add_argument("--out", type=Path, default=Path("results/v3-redteam"))
+
+    vc = sub.add_parser("verify-commitment", help="check a revealed seed against its commitment")
+    vc.add_argument("--commitment", type=Path, required=True)
+    vc.add_argument("--offset", type=int, required=True)
+    vc.add_argument("--salt", required=True)
 
     power = sub.add_parser("power", help="paired sample size for a target accuracy gain")
     power.add_argument("--delta", type=float, default=0.15)
@@ -115,6 +144,8 @@ def main(argv: list[str] | None = None) -> int:
             approval=args.approval,
             reviewer=args.reviewer,
             seed=args.seed,
+            task_seed_offset=args.task_seed_offset,
+            proposer_model=args.proposer_model,
         )
         CHECKPOINT.reset(
             CallStore(args.cache) if args.cache else None, args.max_seconds, args.max_calls
@@ -161,6 +192,7 @@ def main(argv: list[str] | None = None) -> int:
             [int(x) for x in args.seeds.split(",")],
             [float(x) for x in args.guide_effects.split(",")],
             tuple(args.arms.split(",")),
+            error_scales=[float(x) for x in args.error_scales.split(",")],
         )
         _write(args.out / "sweep.json", result)
         (args.out / "summary.md").write_text(render_sweep(result), encoding="utf-8")
@@ -168,13 +200,36 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "confirm":
         CHECKPOINT.reset(CallStore(args.cache) if args.cache else None, args.max_seconds)
         try:
-            result = confirm(args.report, args.arms.split(","), args.n_final, args.task_seed_offset)
+            result = confirm(
+                args.report,
+                args.arms.split(","),
+                args.n_final,
+                args.task_seed_offset,
+                small_model=args.small_model,
+                large_model=args.large_model,
+                variants=tuple(v for v in args.variants.split(",") if v),
+                measure_power=args.power,
+            )
         except ChunkDeadline:
             print(f"checkpoint: {CHECKPOINT.store.count()} calls stored; re-run to resume")
             return 3
         _write(args.out / "confirm.json", result)
         (args.out / "summary.md").write_text(render_confirm(result), encoding="utf-8")
         print(render_confirm(result))
+    elif args.command == "reprice":
+        result = reprice(args.report)
+        _write(args.out / "reprice.json", result)
+        (args.out / "summary.md").write_text(render_reprice(result), encoding="utf-8")
+        print(render_reprice(result))
+    elif args.command == "redteam":
+        result = redteam_evaluate()
+        _write(args.out / "redteam.json", result)
+        (args.out / "summary.md").write_text(redteam_render(result), encoding="utf-8")
+        print(redteam_render(result))
+    elif args.command == "verify-commitment":
+        ok = verify_commitment(args.commitment, args.offset, args.salt)
+        print("commitment verified" if ok else "commitment MISMATCH")
+        return 0 if ok else 1
     elif args.command == "power":
         print(mcnemar_sample_size(args.delta, args.discordance))
     return 0

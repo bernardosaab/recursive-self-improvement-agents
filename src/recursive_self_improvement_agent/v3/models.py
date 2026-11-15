@@ -273,20 +273,33 @@ class SimulatedBackend:
 
     name = "simulated"
 
-    def __init__(self, seed: int = 0, guide_effect: float = GUIDE_EFFECT) -> None:
+    def __init__(
+        self, seed: int = 0, guide_effect: float = GUIDE_EFFECT, error_scale: float = 1.0
+    ) -> None:
         self.seed = seed
         self.guide_effect = guide_effect
+        self.error_scale = error_scale  # multiplier on every hazard error rate (not the checker)
 
     def model_id(self, tier: Tier) -> str:
         suffix = "" if self.guide_effect == GUIDE_EFFECT else f"-guide{self.guide_effect:g}"
+        if self.error_scale != 1.0:
+            suffix += f"-err{self.error_scale:g}"
         return f"simulated-{tier.value}-v3{suffix}"
+
+    def _profile(self, tier: Tier) -> dict[str, float]:
+        p = SIMULATED_PROFILES[tier]
+        if self.error_scale == 1.0:
+            return p
+        return {
+            k: v if k.startswith("check_") else min(1.0, v * self.error_scale) for k, v in p.items()
+        }
 
     def generate(self, request: ModelRequest) -> ModelResult:
         digest = hashlib.sha256(
             f"{self.seed}|{request.tier}|{request.system}|{request.user}|{request.attempt}".encode()
         ).digest()
         rng = random.Random(int.from_bytes(digest[:8], "big"))
-        output = _simulate(rng, SIMULATED_PROFILES[request.tier], request.view, self.guide_effect)
+        output = _simulate(rng, self._profile(request.tier), request.view, self.guide_effect)
         text = json.dumps(output, sort_keys=True)
         return ModelResult(
             model_id=self.model_id(request.tier),

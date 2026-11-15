@@ -1,0 +1,10 @@
+{
+  "offset": 746579,
+  "salt": "3264a22974c3696a81c479921198adca",
+  "revealed_utc": "2026-11-15T14:20:05+00:00",
+  "used_by": {
+    "checker": 746579,
+    "cross_model": 746579,
+    "small_loop_seed1": 746580
+  }
+}

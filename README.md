@@ -61,6 +61,21 @@ xychart-beta
 - **Prompt-only reflection produced nothing deployable** with real models. Its edits never passed the development screen.
 - **Robust to the simulator's key assumption.** Offline, the ratchet beat prompt-only in **20 of 20** seed × assumption runs, including when advisory guides are assumed to be *perfect*.
 - **The proposer is untrusted, and that matters.** 6 of 18 real-model proposals were invalid, and the validator rejected all of them before anything ran.
+- **The cost advantage depends on prices.** The ratchet is cheaper per verified completion under three of four price sheets (0.20–0.59× fixed). It becomes **3.1× more expensive** if the large model costs about 30× the small one, because the proposer chose to route to the large model.
+
+### Pre-registered checks
+
+The hash of a secret task seed and the list of planned runs were [committed and pushed](evidence/v3-commitment/commitment.json) before any of these runs. The seed was revealed afterwards and can be checked with `rasis-v3 verify-commitment`. The one deviation was [recorded before its results were seen](evidence/v3-commitment/deviation.md).
+
+| Check | Result | Verdict |
+|---|---|---|
+| **Fresh tasks**, frozen harnesses, 80 new tasks | ratchet **62.5%** vs fixed 5.0% (46/0, p = 2.8e-14); held-out family 40% vs 0% (p = 0.008) | replicates a second time |
+| **Maker–checker role** added to the frozen ratchet | +2.5 points (6/4, p = 0.75); held-out −15 points; **+47% model calls** | **not worth its cost**: a documented negative |
+| **Smaller models** (`qwen2.5:0.5b`, `1.5b`) as small tier | Neither model ever cites a record, so the baseline scores 0%. The harness still reaches 48.8% small-only, all from compiled paths and escalation to 7b | below about 3b the model contributes nothing; the harness is the only source of accuracy |
+| **Improvement loop on a fresh seed** (0.5b / 1.5b, proposer 7b) | ratchet 41.7% vs prompt-only 1.7% (24/0, p = 1.2e-7); its only promotion was the compiler | the loop finds the zero-model path when the models are useless; held-out stays 0% |
+| **Simulator error rates** ×0.5 and ×1.5 (offline) | ratchet > prompt-only in **10/10** runs; **30/30** across all offline sweeps | not an artefact of the assumed rates |
+| **Text boundaries**, red-team corpus | guidance filter catches 11/30 attacks (4/20 false alarms); note detector 6/25 (1/20) | the regexes are weak; the structural controls are what hold |
+| **Measured resources** (real GPU) | ratchet **1.9 s and 0.035 Wh per verified completion** vs fixed 20.8 s and 0.48 Wh | 11× less time and about 14× less energy per verified completion |
 
 Full tables are in [`docs/results.md`](docs/results.md), covering per-arm metrics, trajectories, factorial, attribution, model ledger, audits and the sweep. Raw reports are in [`evidence/`](evidence/).
 
@@ -236,6 +251,7 @@ sequenceDiagram
 | 9 | **Provenance kept separate from causal attribution** | Infer causes from the audit log | Logs show what changed; only interventions show what helped. |
 | 10 | **Local models, resumable chunked runs** | Hosted APIs | $0, no private data leaves the machine, and runs survive crashes and memory limits bit-for-bit. |
 | 11 | Tool-less **checker with fixed arbitration** | Let agents negotiate | Disagreement handling is auditable and cannot be argued around. |
+| 12 | **Pre-registered seeds** (hash commitment) for confirmatory runs | Pick fresh seeds ad hoc | Anyone can verify the test tasks were fixed before the results existed. |
 
 ---
 
@@ -290,7 +306,17 @@ rasis-v3 sweep --seeds 0,1,2,3,4 --guide-effects 1.0,0.6,0.2,0.0 --out results\v
 rasis-v3 confirm --report evidence\v3-ollama\report.json --arms fixed,ratchet --n-final 40 `
   --task-seed-offset 100 --out results\v3-confirm --cache data\v3-confirm-cache.sqlite3 --max-seconds 360
 
-# 4. Inspect lineage.
+# 4. Pre-registered checks: checker variant, other small models, price sheets, red team.
+rasis-v3 confirm --report evidence\v3-ollama\report.json --arms fixed,ratchet --variants checker_on_hazard `
+  --n-final 20 --task-seed-offset <revealed-offset> --out results\v3-checker --power
+rasis-v3 confirm --report evidence\v3-ollama\report.json --arms fixed,ratchet --variants small_only `
+  --small-model qwen2.5:0.5b --n-final 20 --task-seed-offset <revealed-offset> --out results\v3-xmodel --power
+rasis-v3 sweep --seeds 0,1,2,3,4 --guide-effects 0.6 --error-scales 0.5,1.5 --out results\v3-sweep-errors
+rasis-v3 reprice --report evidence\v3-ollama\report.json
+rasis-v3 redteam
+rasis-v3 verify-commitment --commitment evidence\v3-commitment\commitment.json --offset <offset> --salt <salt>
+
+# 5. Inspect lineage.
 rasis-v3 history  --db data\v3-sim.sqlite3 --arm ratchet
 rasis-v3 pack     --db data\v3-sim.sqlite3 --arm ratchet --review-seq <seq>
 rasis-v3 prov     --db data\v3-sim.sqlite3 --out results\prov.json
@@ -322,30 +348,31 @@ src/recursive_self_improvement_agent/
 │   ├── ratchet.py          monotone hash-chained ratchet suite
 │   ├── registry.py         bi-temporal SQLite registry, PROV export, rollback
 │   ├── study.py            arms, cycles, gate, audits, factorial, attribution
-│   ├── robustness.py       sweep and confirm
+│   ├── robustness.py       sweep, confirm (variants, other models, power), reprice, commitments
+│   ├── redteam.py          attack / benign corpus for the two text boundaries
 │   └── report.py / cli.py
 └── (top level)             v1 and v2 studies (entry point: rasis)
 evidence/                   committed reports for every published number
 docs/                       detailed results, earlier studies
-tests/                      58 tests, including chunked-resume exactness and honeypots
+tests/                      62 tests, including chunked-resume exactness and honeypots
 ```
 
 ---
 
 ## Limitations
 
-- **Synthetic tasks, coupled generator.** The labels, the compiler and the simulated model all follow the documented resolution rule, so compiled accuracy on covered tasks holds by construction. The held-out family and drift are distribution shifts *within* this generator, not evidence of real-world transfer.
-- **The real-model evidence is narrow.** It comes from two small local models, with one improvement run (one seed) plus one replication on fresh tasks. The improvement loop itself was not repeated across seeds.
-- **The simulator encodes assumptions.** The sweep shows the main offline conclusion doesn't depend on guide strength, but the other error rates were not swept. Offline results demonstrate mechanics and statistics; only the Ollama results speak to model behaviour.
-- **Selection data is reused across cycles.** Error spending controls false promotions in the *selection* tests, but it does not remove adaptivity in proposals. "Sealed" is procedural, not cryptographic, because the generator and seeds are public.
-- **The checker role was never promoted with real models.** Team review is exercised by tests and the offline run only.
-- **Attribution is causal only for this task distribution and harness lineage.** Edits that touch the same field are marked non-separable.
-- **Heuristic content boundary.** The guidance filter is a study-specific regex, not a general prompt-injection defence.
-- **Cost is a proxy.** USD figures apply illustrative hosted prices (`PRICE_ASSUMPTIONS`) to measured tokens. Local inference cost $0.
-- **Not production governance.** The gate, escrow, triggers and hash chains are local mechanisms verified by tests, not production authentication or tamper-proof storage. Rollback cannot undo external actions.
-- **Bounded search, not open-ended self-improvement.** This is harness configuration search. There is no weight training and no self-modifying code, and the optimiser does not improve its own algorithm.
+These are what remains after the pre-registered checks above. Each says what was done and what is still open.
 
----
+- **Synthetic tasks, coupled generator** *(open; the most important one)*. The labels, the compiler and the simulated model all follow one documented resolution rule, so compiled accuracy on covered tasks holds by construction. The held-out family and drift are shifts *within* this generator, not evidence of real-world transfer.
+- **Real-model evidence is still small-scale** *(narrowed)*. Frozen harnesses have now replicated on two independent fresh-task samples (160 and 80 tasks), and across four models in two families. But all models are ≤7b, and the full improvement loop has run on real models only twice: the main run, plus one pre-registered seed with models too weak to measure the proposer. Two further pre-registered seeds on the 3b/7b pair were not completed because the 8 GB GPU could not keep both models resident ([deviation record](evidence/v3-commitment/deviation.md)).
+- **Selection data is reused across cycles** *(narrowed)*. Error spending controls false promotions in the selection tests, but proposals still adapt to development diagnostics. Confirmatory runs now use pre-registered seeds, but the original final split's generator and seed were public.
+- **Weak text boundaries** *(measured)*. On a hand-written red-team corpus, the guidance filter catches 37% of attacks and the record-note detector 24%; both catch every direct phrasing and few paraphrases. The benchmark's injection hazard uses one phrasing, so it under-tests this. Safety does not rest on these regexes: tool grants, the write ceiling and budgets cannot be expressed in the harness language.
+- **Attribution is causal only for this task distribution and lineage** *(open)*. Edits that touch the same field are marked non-separable.
+- **Cost figures are illustrative prices on measured tokens** *(measured)*. The ranking holds under three of four price sheets and reverses when the large model is about 30× dearer ([sheets](evidence/v3-reprice/summary.md)). Wall time and GPU energy are now measured directly; energy comes from best-effort nvidia-smi sampling.
+- **The simulator remains a simulator** *(swept)*. The offline conclusion holds across guide strength (0–1) and error rates (×0.5–×1.5), 30/30 runs. Offline results still demonstrate mechanics and statistics, not model behaviour.
+- **Not production governance** *(out of scope)*. The gate, escrow, triggers and hash chains are local mechanisms verified by tests, not production authentication or tamper-proof storage. Rollback cannot undo external actions.
+
+**Scope, not a limitation:** this is bounded harness-configuration search. There is no weight training, no self-modifying code, and the optimiser does not improve its own algorithm. That boundary is what keeps the recursion safe.
 
 ## Earlier studies
 

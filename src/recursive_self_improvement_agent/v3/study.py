@@ -105,6 +105,7 @@ class StudyConfig:
     small_model: str = "llama3.2:3b"
     large_model: str = "qwen2.5:7b"
     proposer: str = "rules"  # rules | ollama (ratchet arms only)
+    proposer_model: str | None = None  # Ollama proposer model; default is the large tier
     n_dev: int = 30
     n_selection: int = 80
     n_final: int = 40
@@ -125,6 +126,7 @@ class StudyConfig:
     seed: int = 0
     task_seed_offset: int = 0  # shifts every split seed: fresh task instances
     guide_effect: float = 0.6  # simulated backend only: strength of advisory guides
+    error_scale: float = 1.0  # simulated backend only: multiplier on hazard error rates
     audits: bool = True
 
 
@@ -158,7 +160,9 @@ def _hash(value: Any) -> str:
 
 def make_backend(config: StudyConfig) -> Backend:
     if config.provider == "simulated":
-        return SimulatedBackend(seed=config.seed, guide_effect=config.guide_effect)
+        return SimulatedBackend(
+            seed=config.seed, guide_effect=config.guide_effect, error_scale=config.error_scale
+        )
     if config.provider == "ollama":
         backend = OllamaBackend(small=config.small_model, large=config.large_model)
         if not backend.available():
@@ -300,11 +304,12 @@ class Study:
                     self.backend,
                     name="prompt_reflection_ollama",
                     allowed_ops=frozenset({"add_guide", "remove_guide", "set_extra_guidance"}),
+                    model=self.config.proposer_model,
                 )
             return prompt_only_proposer()
         if self.config.proposer == "ollama":
             assert isinstance(self.backend, OllamaBackend)
-            return OllamaProposer(self.backend)
+            return OllamaProposer(self.backend, model=self.config.proposer_model)
         return structural_proposer()
 
     # -- one arm -----------------------------------------------------------------

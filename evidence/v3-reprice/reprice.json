@@ -1,0 +1,208 @@
+{
+  "arms": {
+    "fixed": {
+      "costs": {
+        "both_cheap": {
+          "per_verified_completion": 0.0004716833333333334,
+          "usd": 0.0028301000000000003
+        },
+        "narrow_gap": {
+          "per_verified_completion": 0.0028301,
+          "usd": 0.0169806
+        },
+        "published_default": {
+          "per_verified_completion": 0.0009433666666666668,
+          "usd": 0.005660200000000001
+        },
+        "wide_gap": {
+          "per_verified_completion": 0.0009433666666666668,
+          "usd": 0.005660200000000001
+        }
+      },
+      "tokens": {
+        "large": [
+          0,
+          0
+        ],
+        "small": [
+          32126,
+          6119
+        ]
+      },
+      "verified_completions": 6
+    },
+    "prompt_only": {
+      "costs": {
+        "both_cheap": {
+          "per_verified_completion": 0.0004716833333333334,
+          "usd": 0.0028301000000000003
+        },
+        "narrow_gap": {
+          "per_verified_completion": 0.0028301,
+          "usd": 0.0169806
+        },
+        "published_default": {
+          "per_verified_completion": 0.0009433666666666668,
+          "usd": 0.005660200000000001
+        },
+        "wide_gap": {
+          "per_verified_completion": 0.0009433666666666668,
+          "usd": 0.005660200000000001
+        }
+      },
+      "tokens": {
+        "large": [
+          0,
+          0
+        ],
+        "small": [
+          32126,
+          6119
+        ]
+      },
+      "verified_completions": 6
+    },
+    "random": {
+      "costs": {
+        "both_cheap": {
+          "per_verified_completion": 0.0003394666666666667,
+          "usd": 0.009165600000000001
+        },
+        "narrow_gap": {
+          "per_verified_completion": 0.0010184,
+          "usd": 0.0274968
+        },
+        "published_default": {
+          "per_verified_completion": 0.0010184,
+          "usd": 0.0274968
+        },
+        "wide_gap": {
+          "per_verified_completion": 0.005419555555555556,
+          "usd": 0.146328
+        }
+      },
+      "tokens": {
+        "large": [
+          34036,
+          2948
+        ],
+        "small": [
+          0,
+          0
+        ]
+      },
+      "verified_completions": 27
+    },
+    "ratchet": {
+      "costs": {
+        "both_cheap": {
+          "per_verified_completion": 0.00018444324324324327,
+          "usd": 0.0068244
+        },
+        "narrow_gap": {
+          "per_verified_completion": 0.0005533297297297296,
+          "usd": 0.020473199999999997
+        },
+        "published_default": {
+          "per_verified_completion": 0.0005533297297297296,
+          "usd": 0.020473199999999997
+        },
+        "wide_gap": {
+          "per_verified_completion": 0.002950297297297297,
+          "usd": 0.109161
+        }
+      },
+      "tokens": {
+        "large": [
+          25062,
+          2265
+        ],
+        "small": [
+          0,
+          0
+        ]
+      },
+      "verified_completions": 37
+    },
+    "ratchet_no_compiler": {
+      "costs": {
+        "both_cheap": {
+          "per_verified_completion": 0.0003822518518518519,
+          "usd": 0.010320800000000002
+        },
+        "narrow_gap": {
+          "per_verified_completion": 0.0011467555555555555,
+          "usd": 0.0309624
+        },
+        "published_default": {
+          "per_verified_completion": 0.0011467555555555555,
+          "usd": 0.0309624
+        },
+        "wide_gap": {
+          "per_verified_completion": 0.006115777777777777,
+          "usd": 0.165126
+        }
+      },
+      "tokens": {
+        "large": [
+          37852,
+          3438
+        ],
+        "small": [
+          0,
+          0
+        ]
+      },
+      "verified_completions": 27
+    }
+  },
+  "ratchet_over_fixed_cost_per_completion": {
+    "both_cheap": 0.39103192800941994,
+    "narrow_gap": 0.19551596400470997,
+    "published_default": 0.5865478920141297,
+    "wide_gap": 3.127413127413127
+  },
+  "sheets": {
+    "both_cheap": {
+      "large": [
+        0.2,
+        0.8
+      ],
+      "small": [
+        0.05,
+        0.2
+      ]
+    },
+    "narrow_gap": {
+      "large": [
+        0.6,
+        2.4
+      ],
+      "small": [
+        0.3,
+        1.2
+      ]
+    },
+    "published_default": {
+      "large": [
+        0.6,
+        2.4
+      ],
+      "small": [
+        0.1,
+        0.4
+      ]
+    },
+    "wide_gap": {
+      "large": [
+        3.0,
+        15.0
+      ],
+      "small": [
+        0.1,
+        0.4
+      ]
+    }
+  },
+  "source_report": "evidence/v3-ollama/report.json"
+}

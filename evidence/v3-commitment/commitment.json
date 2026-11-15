@@ -1,0 +1,23 @@
+{
+  "scheme": "sha256('rasis-v3-commit|offset=<base>|salt=<salt>')",
+  "commitment": "fd974500afe9e5fc6cb05ba0c16c531cdff44cd41c7b30a3e95381da32352a36",
+  "committed_utc": "2026-11-15T13:51:07+00:00",
+  "planned_runs": [
+    {
+      "name": "checker",
+      "task_seed_offset": "base+0",
+      "what": "confirm: frozen fixed, ratchet and ratchet+checker(large,on_hazard) from evidence/v3-ollama on llama3.2:3b/qwen2.5:7b, 20 tasks per family"
+    },
+    {
+      "name": "cross_model",
+      "task_seed_offset": "base+0",
+      "what": "confirm: frozen fixed and ratchet on qwen2.5:0.5b and qwen2.5:1.5b as the small tier (large tier qwen2.5:7b), same tasks"
+    },
+    {
+      "name": "small_loop",
+      "task_seed_offset": "base+1, base+2, base+3",
+      "what": "full improvement loop (fixed, ratchet, prompt_only) with small=qwen2.5:0.5b, large=qwen2.5:1.5b, proposer=qwen2.5:7b, one run per offset"
+    }
+  ],
+  "rule": "All results are reported whatever they show; the base and salt are revealed after the runs."
+}

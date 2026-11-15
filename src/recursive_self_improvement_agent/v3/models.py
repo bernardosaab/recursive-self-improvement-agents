@@ -256,7 +256,9 @@ def memo_call(namespace: str, key_parts: list[Any], fn: Any) -> dict[str, Any]:
         if stored is not None:
             return json.loads(stored)
     CHECKPOINT.check()
+    started = time.perf_counter()
     payload = fn()
+    payload["_wall_s"] = time.perf_counter() - started  # preserved across resumes
     if CHECKPOINT.store is not None:
         CHECKPOINT.store.put(namespace, key, json.dumps(payload))
     return payload

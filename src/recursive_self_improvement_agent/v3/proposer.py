@@ -460,7 +460,7 @@ class OllamaProposer:
             self.usage.calls += 1
             self.usage.input_tokens += int(payload.get("prompt_eval_count", 0))
             self.usage.output_tokens += int(payload.get("eval_count", 0))
-            self.usage.latency_s += time.perf_counter() - started
+            self.usage.latency_s += float(payload.get("_wall_s", time.perf_counter() - started))
             price_in, price_out = PRICE_ASSUMPTIONS[Tier.LARGE]
             self.usage.cost_usd = (
                 self.usage.input_tokens * price_in + self.usage.output_tokens * price_out

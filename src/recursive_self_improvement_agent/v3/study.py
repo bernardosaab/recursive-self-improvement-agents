@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import random
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -85,7 +86,15 @@ PROMOTION_RULE = (
     "where alpha_t = 0.05 * 6 / (pi^2 t^2) for the arm's t-th selection test. Fixed before any "
     "v3 candidate was generated."
 )
-ARMS = ("fixed", "ratchet", "ratchet_no_memory", "ratchet_no_replay", "prompt_only", "random")
+ARMS = (
+    "fixed",
+    "ratchet",
+    "ratchet_no_memory",
+    "ratchet_no_replay",
+    "ratchet_no_compiler",
+    "prompt_only",
+    "random",
+)
 
 
 @dataclass
@@ -132,6 +141,10 @@ class ArmLedger:
         }
     )
     wall_s: float = 0.0
+
+
+def _progress(message: str) -> None:
+    print(message, file=sys.stderr, flush=True)
 
 
 def _hash(value: Any) -> str:
@@ -266,8 +279,8 @@ class Study:
         evaluator = Evaluator(self.backend, cache, ledger)
         memory = ProposalMemory(enabled=arm != "ratchet_no_memory")
         proposer = self._proposer(arm)
-        uses_compiler = arm.startswith("ratchet")
-        uses_replay = arm in {"ratchet", "ratchet_no_memory"}
+        uses_compiler = arm.startswith("ratchet") and arm != "ratchet_no_compiler"
+        uses_replay = arm in {"ratchet", "ratchet_no_memory", "ratchet_no_compiler"}
         suite = RatchetSuite()
         for case in self.safety:
             suite.append("safety", "seeded_negative_test", 0, case)
@@ -280,6 +293,7 @@ class Study:
 
         for cycle in range(1, cfg.cycles + 1 if proposer else 1):
             record: dict[str, Any] = {"cycle": cycle, "incumbent": inc_hash}
+            _progress(f"[{arm}] cycle {cycle}: live calls so far {ledger.live_model_calls}")
             dev_traces, dev_outcomes, _ = evaluator.run(self.dev, incumbent)
             clusters = cluster_failures(self.dev, dev_traces, dev_outcomes)
             record["incumbent_dev"] = summarize(dev_outcomes)
@@ -839,6 +853,7 @@ class Study:
         best_arm = "ratchet" if "ratchet" in harnesses else next(iter(harnesses))
         audit_harness = harnesses[best_arm]
         audit_suite = self.arm_results[best_arm]["_suite"]
+        _progress("sealed final evaluation")
         final = self.final(harnesses)
         report = {
             "version": "v3",

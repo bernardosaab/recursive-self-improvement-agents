@@ -347,7 +347,7 @@ class _FakeOllama:
     def __init__(self, text: str) -> None:
         self.text = text
 
-    def chat(self, model, system, user, attempt, schema):
+    def chat(self, model, system, user, attempt, schema, max_tokens=512):
         assert "expected" not in user and "supporting" not in user
         return {"message": {"content": self.text}, "prompt_eval_count": 10, "eval_count": 5}
 

@@ -405,3 +405,42 @@ def test_pending_approval_never_activates_a_candidate(tmp_path):
     result = study.run_arm("ratchet")
     assert [h["reason"] for h in result["activation_history"]] == ["initial baseline"]
     assert result["final_hash"] == harness_hash(BASELINE_HARNESS)
+
+
+def test_chunked_resumable_run_matches_uninterrupted_run(tmp_path):
+    from recursive_self_improvement_agent.v3.models import CHECKPOINT, CallStore, ChunkDeadline
+
+    config = StudyConfig(
+        n_dev=9,
+        n_selection=15,
+        n_final=6,
+        cycles=2,
+        arms=("fixed", "ratchet"),
+        approval="standing",
+        min_pairs=15,
+    )
+
+    def strip(report):
+        report = json.loads(json.dumps(report, default=str))
+        for key in ("wall_s",):
+            report.pop(key, None)
+        for arm in report["arms"].values():
+            arm["ledger"].pop("wall_s", None)
+        return report
+
+    CHECKPOINT.reset()
+    reference = strip(Study(config, Registry()).run())
+
+    store_path = tmp_path / "calls.sqlite3"
+    chunks = 0
+    while True:
+        chunks += 1
+        CHECKPOINT.reset(CallStore(store_path), max_new_calls=250)
+        try:
+            resumed = strip(Study(config, Registry()).run())
+            break
+        except ChunkDeadline:
+            assert chunks < 50
+    CHECKPOINT.reset()
+    assert chunks > 1
+    assert resumed == reference

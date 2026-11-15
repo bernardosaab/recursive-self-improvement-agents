@@ -15,10 +15,12 @@ from __future__ import annotations
 import hashlib
 import json
 import random
+import sqlite3
 import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Protocol
 
 from .harness import Guide, Tier
@@ -119,13 +121,95 @@ def request_key(model_id: str, request: ModelRequest) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+class ChunkDeadline(RuntimeError):
+    """Raised before a live call once the invocation's time box is spent."""
+
+
+class CallStore:
+    """Durable, content-addressed store of every live model call (the checkpoint).
+
+    Because tools are deterministic and every model input is content-addressed, a
+    re-run that restores calls from this store follows exactly the same path as an
+    uninterrupted run, so long studies can be split into short resumable chunks.
+    """
+
+    def __init__(self, path: str | Path) -> None:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self.db = sqlite3.connect(str(path))
+        self.db.execute(
+            "CREATE TABLE IF NOT EXISTS calls (namespace TEXT, key TEXT, payload TEXT, "
+            "PRIMARY KEY (namespace, key))"
+        )
+        self.db.commit()
+
+    def load(self, namespace: str) -> dict[str, str]:
+        rows = self.db.execute("SELECT key, payload FROM calls WHERE namespace = ?", (namespace,))
+        return dict(rows.fetchall())
+
+    def put(self, namespace: str, key: str, payload: str) -> None:
+        self.db.execute("INSERT OR REPLACE INTO calls VALUES (?, ?, ?)", (namespace, key, payload))
+        self.db.commit()
+
+    def count(self) -> int:
+        return int(self.db.execute("SELECT COUNT(*) FROM calls").fetchone()[0])
+
+
+@dataclass
+class Checkpoint:
+    store: CallStore | None = None
+    deadline: float | None = None
+    counter: int = 0
+    new_calls: int = 0
+    max_new_calls: int | None = None
+
+    def namespace(self, prefix: str = "c") -> str:
+        self.counter += 1
+        return f"{prefix}{self.counter}"
+
+    def check(self) -> None:
+        """Called before every new live call; each chunk always makes progress."""
+        spent = (self.deadline is not None and time.monotonic() >= self.deadline) or (
+            self.max_new_calls is not None and self.new_calls >= self.max_new_calls
+        )
+        if spent and self.new_calls > 0:
+            raise ChunkDeadline("time box spent; re-run the same command to resume")
+        self.new_calls += 1
+
+    def reset(
+        self,
+        store: CallStore | None = None,
+        max_seconds: float | None = None,
+        max_new_calls: int | None = None,
+    ) -> None:
+        self.store = store
+        self.max_new_calls = max_new_calls
+        self.deadline = time.monotonic() + max_seconds if max_seconds else None
+        self.counter = 0
+        self.new_calls = 0
+
+
+CHECKPOINT = Checkpoint()
+
+
+def _dump_result(result: ModelResult) -> str:
+    return json.dumps({**result.__dict__, "tier": result.tier.value, "cached": False})
+
+
+def _load_result(payload: str) -> ModelResult:
+    data = json.loads(payload)
+    data["tier"] = Tier(data["tier"])
+    return ModelResult(**data)
+
+
 class ModelCache:
-    """Content-addressed log of every model call; the replay substrate."""
+    """Content-addressed log of every model call; the replay substrate and checkpoint."""
 
     def __init__(self) -> None:
         self._entries: dict[str, ModelResult] = {}
         self.live_calls = 0
         self.reused_calls = 0
+        self.namespace = CHECKPOINT.namespace()
+        self._restorable = CHECKPOINT.store.load(self.namespace) if CHECKPOINT.store else {}
 
     def __len__(self) -> int:
         return len(self._entries)
@@ -141,7 +225,14 @@ class ModelCache:
             return ModelResult(**{**hit.__dict__, "cached": True})
         if replay_only:
             raise OutOfSupport(key)
-        result = backend.generate(request)
+        restored = self._restorable.pop(key, None)
+        if restored is not None:
+            result = _load_result(restored)  # counted as live: it was live when first made
+        else:
+            CHECKPOINT.check()
+            result = backend.generate(request)
+            if CHECKPOINT.store is not None:
+                CHECKPOINT.store.put(self.namespace, key, _dump_result(result))
         self._entries[key] = result
         self.live_calls += 1
         return result
@@ -151,6 +242,20 @@ class ModelCache:
             key: {k: (v.value if isinstance(v, Tier) else v) for k, v in result.__dict__.items()}
             for key, result in self._entries.items()
         }
+
+
+def memo_call(namespace: str, key_parts: list[Any], fn: Any) -> dict[str, Any]:
+    """Checkpointed wrapper for non-runtime model calls (e.g. the proposer)."""
+    key = hashlib.sha256(json.dumps(key_parts, sort_keys=True).encode()).hexdigest()
+    if CHECKPOINT.store is not None:
+        stored = CHECKPOINT.store.load(namespace).get(key)
+        if stored is not None:
+            return json.loads(stored)
+    CHECKPOINT.check()
+    payload = fn()
+    if CHECKPOINT.store is not None:
+        CHECKPOINT.store.put(namespace, key, json.dumps(payload))
+    return payload
 
 
 def _tokens(text: str) -> int:

@@ -33,7 +33,7 @@ from .harness import (
     harness_hash,
     parse_op,
 )
-from .models import PRICE_ASSUMPTIONS, OllamaBackend
+from .models import CHECKPOINT, PRICE_ASSUMPTIONS, OllamaBackend, memo_call
 
 
 @dataclass
@@ -403,6 +403,7 @@ class OllamaProposer:
         self.name = name
         self.allowed_ops = allowed_ops
         self.usage = ProposerUsage()
+        self.namespace = CHECKPOINT.namespace("proposer")
 
     def propose(self, parent, clusters, trace_summaries, memory, k, cycle):
         schema = {
@@ -436,8 +437,14 @@ class OllamaProposer:
         results: list[HarnessProposal | dict[str, Any]] = []
         for attempt in range(k):
             started = time.perf_counter()
-            payload = self.backend.chat(
-                self.backend.models[Tier.LARGE], OLLAMA_SYSTEM, user, attempt + 100 * cycle, schema
+            seed = attempt + 100 * cycle
+            model = self.backend.models[Tier.LARGE]
+            payload = memo_call(
+                self.namespace,
+                [model, OLLAMA_SYSTEM, user, seed, schema],
+                lambda model=model, seed=seed: self.backend.chat(
+                    model, OLLAMA_SYSTEM, user, seed, schema
+                ),
             )
             self.usage.calls += 1
             self.usage.input_tokens += int(payload.get("prompt_eval_count", 0))

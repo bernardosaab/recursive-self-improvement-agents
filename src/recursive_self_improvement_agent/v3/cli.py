@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
+from .models import CHECKPOINT, CallStore, ChunkDeadline
 from .registry import Registry
 from .report import write_markdown
 from .stats import mcnemar_sample_size
@@ -42,6 +44,17 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--seed", type=int, default=0)
     run.add_argument("--db", type=Path, default=Path("data/v3-registry.sqlite3"))
     run.add_argument("--out", type=Path, default=Path("results/v3"))
+    run.add_argument(
+        "--cache",
+        type=Path,
+        help="durable call store; makes the run resumable (re-run the same command)",
+    )
+    run.add_argument(
+        "--max-seconds",
+        type=float,
+        help="time box per invocation; exits with code 3 and resumes on re-run",
+    )
+    run.add_argument("--max-calls", type=int, help="new live model calls per invocation")
 
     hist = sub.add_parser("history", help="activation history and lineage for an arm")
     hist.add_argument("--db", type=Path, required=True)
@@ -87,7 +100,24 @@ def main(argv: list[str] | None = None) -> int:
             reviewer=args.reviewer,
             seed=args.seed,
         )
-        report = Study(config, Registry(args.db)).run()
+        CHECKPOINT.reset(
+            CallStore(args.cache) if args.cache else None, args.max_seconds, args.max_calls
+        )
+        registry = Registry(":memory:") if args.cache else Registry(args.db)
+        try:
+            report = Study(config, registry).run()
+        except ChunkDeadline:
+            stored = CHECKPOINT.store.count() if CHECKPOINT.store else 0
+            print(f"checkpoint: {stored} calls stored in {args.cache}; re-run to resume")
+            return 3
+        if args.cache:
+            args.db.parent.mkdir(parents=True, exist_ok=True)
+            with sqlite3.connect(str(args.db)) as target:
+                registry.db.backup(target)
+            report["checkpoint"] = {
+                "cache": str(args.cache),
+                "stored_calls": CHECKPOINT.store.count(),
+            }
         _write(args.out / "report.json", report)
         write_markdown(report, args.out / "summary.md")
         print(f"wrote {args.out / 'report.json'} and {args.out / 'summary.md'}")
